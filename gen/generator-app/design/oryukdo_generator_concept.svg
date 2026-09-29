@@ -1,0 +1,156 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" viewBox="0 0 1600 1000">
+  <defs>
+    <linearGradient id="bg" x2="1" y2="1"><stop stop-color="#0d1117"/><stop offset="1" stop-color="#121b24"/></linearGradient>
+    <linearGradient id="hero" x2="1" y2="1"><stop stop-color="#192d38"/><stop offset="1" stop-color="#16202a"/></linearGradient>
+    <linearGradient id="accent" x2="1"><stop stop-color="#ff6534"/><stop offset="1" stop-color="#ff9a5b"/></linearGradient>
+    <filter id="shadow"><feDropShadow dx="0" dy="10" stdDeviation="18" flood-color="#05090d" flood-opacity=".25"/></filter>
+    <marker id="arrow" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0 0 7 3.5 0 7" fill="none" stroke="#6a8593" stroke-width="1.5"/></marker>
+  </defs>
+  <style>
+    text{font-family:Inter,Arial,sans-serif;fill:#e8eff3} .muted{fill:#8395a2} .tiny{font-size:12px} .small{font-size:14px} .body{font-size:16px} .label{font-size:12px;font-weight:700;letter-spacing:1.4px} .title{font-size:24px;font-weight:750} .cardTitle{font-size:17px;font-weight:700} .mono{font-family:Consolas,monospace;font-size:13px} .pill{font-size:12px;font-weight:700}
+  </style>
+  <rect width="1600" height="1000" fill="url(#bg)"/>
+  <rect x="0" y="0" width="1600" height="78" fill="#111820"/>
+  <path d="M0 77H1600" stroke="#283744"/>
+  <rect x="30" y="23" width="8" height="32" rx="4" fill="url(#accent)"/>
+  <text x="56" y="49" class="title">ORYUKDO Studio</text>
+  <rect x="281" y="27" width="134" height="26" rx="13" fill="#1e3440" stroke="#365664"/>
+  <text x="303" y="45" class="pill" fill="#9bdad1">CPU platform</text>
+  <text x="977" y="47" class="small muted">Project</text>
+  <rect x="1035" y="18" width="238" height="42" rx="9" fill="#1b2630" stroke="#31424f"/>
+  <text x="1051" y="45" class="small">rv32_oryukdo_lab</text>
+  <rect x="1292" y="18" width="120" height="42" rx="9" fill="#26343d" stroke="#425867"/>
+  <text x="1318" y="45" class="small">Import JSON</text>
+  <rect x="1424" y="18" width="147" height="42" rx="9" fill="url(#accent)"/>
+  <text x="1443" y="45" class="small" fill="#15191d" font-weight="750">Generate ZIP  →</text>
+
+  <rect x="22" y="98" width="290" height="876" rx="18" fill="#151e27" stroke="#2b3b48"/>
+  <text x="46" y="132" class="label muted">WORKSPACE</text>
+  <rect x="36" y="150" width="262" height="44" rx="9" fill="#24343c" stroke="#365566"/>
+  <rect x="36" y="150" width="4" height="44" rx="2" fill="#ff7444"/>
+  <text x="57" y="178" class="small" font-weight="700">01  Architecture</text>
+  <text x="57" y="227" class="small muted">02  Decoder / ISA</text>
+  <text x="57" y="270" class="small muted">03  EX modules</text>
+  <text x="57" y="313" class="small muted">04  Recovery &amp; CSR</text>
+  <text x="57" y="356" class="small muted">05  Validate &amp; export</text>
+  <path d="M46 380H288" stroke="#2d3d49"/>
+
+  <text x="46" y="416" class="label muted">PLATFORM</text>
+  <rect x="44" y="430" width="246" height="55" rx="10" fill="#0e161e" stroke="#ff7852" stroke-width="1.5"/>
+  <circle cx="68" cy="457" r="8" fill="#ff7348"/><circle cx="68" cy="457" r="3" fill="#18202a"/>
+  <text x="86" y="452" class="small" font-weight="700">ORYUKDO</text>
+  <text x="86" y="469" class="tiny muted">Ordered CPU recovery</text>
+  <rect x="44" y="494" width="246" height="55" rx="10" fill="#19242d" stroke="#324653"/>
+  <circle cx="68" cy="520" r="8" fill="none" stroke="#718b9a" stroke-width="1.5"/>
+  <text x="86" y="516" class="small">EULSUKDO</text>
+  <text x="86" y="534" class="tiny muted">Application OoO engine</text>
+
+  <text x="46" y="589" class="label muted">CORE SHAPE</text>
+  <text x="46" y="630" class="small">Decode width</text>
+  <rect x="188" y="604" width="102" height="38" rx="8" fill="#101b24" stroke="#47606d"/>
+  <path d="M222 604V642M258 604V642" stroke="#3e5562"/>
+  <text x="204" y="630" class="body" text-anchor="middle" fill="#a9b9c3">−</text>
+  <text x="240" y="630" class="body" text-anchor="middle" fill="#ff9a6a" font-weight="700">4</text>
+  <text x="274" y="630" class="body" text-anchor="middle" fill="#a9b9c3">+</text>
+  <text x="46" y="685" class="small">EX issue ports</text><text x="258" y="685" class="small" text-anchor="end" fill="#ff9a6a">5</text>
+  <text x="46" y="726" class="small">IST / frontier entries</text><text x="258" y="726" class="small" text-anchor="end" fill="#ff9a6a">64</text>
+  <path d="M46 746H284" stroke="#344752"/>
+  <text x="46" y="783" class="small">Memory ordering</text>
+  <rect x="245" y="764" width="45" height="26" rx="13" fill="#2c8076"/><circle cx="274" cy="777" r="10" fill="#d6fff2"/>
+  <text x="46" y="830" class="small">Precise recovery</text>
+  <rect x="245" y="811" width="45" height="26" rx="13" fill="#2c8076"/><circle cx="274" cy="824" r="10" fill="#d6fff2"/>
+  <rect x="44" y="889" width="246" height="54" rx="10" fill="#172c2b" stroke="#37615a"/>
+  <text x="59" y="914" class="tiny" fill="#a6e2d0">PROFILE CHECK</text>
+  <text x="59" y="931" class="tiny muted">Ports and widths consistent</text>
+
+  <rect x="332" y="98" width="918" height="876" rx="18" fill="#151e27" stroke="#2b3b48"/>
+  <rect x="350" y="116" width="882" height="129" rx="14" fill="url(#hero)" stroke="#365160"/>
+  <text x="376" y="151" class="label" fill="#ff9c76">CONFIGURATION PREVIEW</text>
+  <text x="376" y="188" class="title">A replaceable CPU substrate</text>
+  <text x="376" y="217" class="small muted">Choose the modules. Keep the same issue, age, retirement and recovery contract.</text>
+  <rect x="1056" y="139" width="151" height="31" rx="15" fill="#2c4445"/>
+  <text x="1073" y="159" class="pill" fill="#a7ebd8">●  Static fallback</text>
+
+  <text x="352" y="286" class="label muted">LIVE STRUCTURE</text>
+  <text x="1176" y="286" class="tiny muted" text-anchor="end">Example profile · 4D / 5I / 64 entries</text>
+  <!-- Data path: six cards across two lines to preserve clear labels. -->
+  <path d="M511 372H530M676 372H695M841 372H860M1006 372H1025" stroke="#718b98" stroke-width="2.5" marker-end="url(#arrow)"/>
+  <rect x="352" y="317" width="158" height="112" rx="12" fill="#203441" stroke="#44718a"/>
+  <text x="368" y="346" class="tiny" fill="#9ecce2">01  FETCH</text><text x="368" y="373" class="cardTitle">FCL + predictor</text>
+  <text x="368" y="398" class="tiny muted">static / external</text>
+  <rect x="531" y="317" width="145" height="112" rx="12" fill="#233243" stroke="#4b6d93"/>
+  <text x="547" y="346" class="tiny" fill="#a9cafa">02  DECODE</text><text x="547" y="373" class="cardTitle">ISA lanes ×4</text>
+  <text x="547" y="398" class="tiny muted">uop / exception</text>
+  <rect x="696" y="317" width="145" height="112" rx="12" fill="#263341" stroke="#57718d"/>
+  <text x="712" y="346" class="tiny" fill="#a9cafa">03  RENAME</text><text x="712" y="373" class="cardTitle">NEL + PRM</text>
+  <text x="712" y="398" class="tiny muted">spec / committed</text>
+  <rect x="861" y="317" width="145" height="112" rx="12" fill="#24384a" stroke="#4d7f9c"/>
+  <text x="877" y="346" class="tiny" fill="#9ed5ed">04  SCHEDULE</text><text x="877" y="373" class="cardTitle">IST + RS</text>
+  <text x="877" y="398" class="tiny muted">age tagged issue</text>
+  <rect x="1026" y="317" width="204" height="112" rx="12" fill="#243c3e" stroke="#4e9d94"/>
+  <text x="1042" y="346" class="tiny" fill="#a5eadb">05  EXECUTE</text><text x="1042" y="373" class="cardTitle">External EX ×5</text>
+  <text x="1042" y="398" class="tiny muted">ALU ×3 · BR ×1 · AGU ×1</text>
+
+  <path d="M1128 431V477H1114" stroke="#6da79d" stroke-width="2.5" fill="none" marker-end="url(#arrow)"/>
+  <rect x="1008" y="478" width="221" height="86" rx="12" fill="#1c3737" stroke="#4a8e80"/>
+  <text x="1027" y="508" class="tiny" fill="#95e4cb">RESULT ACCEPTANCE</text>
+  <text x="1027" y="535" class="cardTitle">WBC · key + age</text>
+  <path d="M1007 520H834" stroke="#7ba69f" stroke-width="2.5" fill="none" marker-end="url(#arrow)"/>
+  <rect x="610" y="478" width="223" height="86" rx="12" fill="#20413d" stroke="#59a98d"/>
+  <text x="628" y="508" class="tiny" fill="#98e3bb">ORDERED COMMIT</text>
+  <text x="628" y="535" class="cardTitle">Retirement frontier</text>
+  <path d="M628 522H531" stroke="#76ad9a" stroke-width="2.5" fill="none" marker-end="url(#arrow)"/>
+  <rect x="352" y="478" width="178" height="86" rx="12" fill="#26344a" stroke="#607ca7"/>
+  <text x="369" y="508" class="tiny" fill="#b6c9ed">MEMORY ORDER</text>
+  <text x="369" y="535" class="cardTitle">LSQ + store gate</text>
+  <path d="M706 568V604H424V573" stroke="#e3a562" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <text x="550" y="597" class="tiny" fill="#dfa765">retire-authorized store</text>
+  <path d="M715 569V633H426V441" stroke="#e26767" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <text x="761" y="626" class="tiny" fill="#ed9992">mispredict / exception → flush + redirect</text>
+
+  <text x="352" y="685" class="label muted">EXECUTION MAP</text>
+  <rect x="352" y="702" width="878" height="115" rx="13" fill="#192630" stroke="#314552"/>
+  <text x="372" y="730" class="small muted">Path</text><text x="583" y="730" class="small muted">Issue</text><text x="731" y="730" class="small muted">WBC</text><text x="905" y="730" class="small muted">Recovery behavior</text>
+  <path d="M370 742H1211" stroke="#354854"/>
+  <text x="372" y="766" class="small">ALU</text><text x="590" y="766" class="small">3</text><text x="740" y="766" class="small">0–2</text><text x="905" y="766" class="small">tagged result + flush</text>
+  <text x="372" y="789" class="small">Branch</text><text x="590" y="789" class="small">1</text><text x="740" y="789" class="small">3</text><text x="905" y="789" class="small">resolve + predictor update</text>
+  <text x="372" y="811" class="small">Memory</text><text x="590" y="811" class="small">1</text><text x="740" y="811" class="small">4</text><text x="905" y="811" class="small">AGU → LSQ → gated commit</text>
+
+  <rect x="352" y="839" width="878" height="113" rx="13" fill="#1a282f" stroke="#344a50"/>
+  <text x="372" y="870" class="label" fill="#a7e4cd">GENERATED PROJECT</text>
+  <text x="372" y="899" class="small">top.sv    decoder.sv    scheduler/    recovery/    lsq/    adapters/</text>
+  <text x="372" y="927" class="tiny muted">Manifest, interface checklist and configuration-specific lint script included in ZIP.</text>
+
+  <rect x="1270" y="98" width="308" height="876" rx="18" fill="#151e27" stroke="#2b3b48"/>
+  <text x="1292" y="132" class="label muted">MODULE SOCKETS</text>
+  <rect x="1286" y="150" width="276" height="114" rx="11" fill="#1e2c34" stroke="#375463"/>
+  <circle cx="1309" cy="178" r="7" fill="#5cc7b2"/><text x="1325" y="183" class="cardTitle">Branch predictor</text>
+  <text x="1302" y="209" class="small muted">Static not taken</text>
+  <text x="1302" y="236" class="tiny" fill="#a8d8d1">Swap: external request / update</text>
+  <rect x="1286" y="278" width="276" height="114" rx="11" fill="#1e2c34" stroke="#375463"/>
+  <circle cx="1309" cy="307" r="7" fill="#ffaf72"/><text x="1325" y="312" class="cardTitle">EX implementations</text>
+  <text x="1302" y="338" class="small muted">External RTL slots ×5</text>
+  <text x="1302" y="365" class="tiny" fill="#e3ba91">key / age / accept / flush</text>
+  <rect x="1286" y="406" width="276" height="114" rx="11" fill="#1e2c34" stroke="#375463"/>
+  <circle cx="1309" cy="434" r="7" fill="#a39add"/><text x="1325" y="439" class="cardTitle">CSR / trap control</text>
+  <text x="1302" y="465" class="small muted">External privileged block</text>
+  <text x="1302" y="492" class="tiny" fill="#b8b0ea">fault / interrupt / vector / EPC</text>
+
+  <text x="1292" y="569" class="label muted">CONTRACT CHECKS</text>
+  <rect x="1286" y="589" width="276" height="217" rx="11" fill="#19262d" stroke="#344853"/>
+  <circle cx="1307" cy="618" r="9" fill="#2b6c60"/><text x="1303" y="623" class="small" fill="#d8fff3">✓</text>
+  <text x="1326" y="623" class="small">Issue / WBC lane totals</text>
+  <circle cx="1307" cy="661" r="9" fill="#2b6c60"/><text x="1303" y="666" class="small" fill="#d8fff3">✓</text>
+  <text x="1326" y="666" class="small">Memory lane reserved</text>
+  <circle cx="1307" cy="704" r="9" fill="#2b6c60"/><text x="1303" y="709" class="small" fill="#d8fff3">✓</text>
+  <text x="1326" y="709" class="small">Predictor fallback present</text>
+  <circle cx="1307" cy="747" r="9" fill="#9a6740"/><text x="1303" y="752" class="small" fill="#fff0dc">!</text>
+  <text x="1326" y="752" class="small">CSR module supplied later</text>
+  <text x="1302" y="789" class="tiny muted">Concept checks · no RTL generated</text>
+
+  <rect x="1286" y="825" width="276" height="125" rx="11" fill="#23302f" stroke="#436a60"/>
+  <text x="1303" y="853" class="label" fill="#a7e6d0">EXPORT PREVIEW</text>
+  <text x="1303" y="880" class="small">Configuration manifest</text>
+  <text x="1303" y="905" class="small">Top + module sockets</text>
+  <text x="1303" y="932" class="tiny muted">Design concept · not wired to app</text>
+</svg>

@@ -1,0 +1,62 @@
+name: Deploy YOUNGDO Studio
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/youngdo-pages.yml'
+      - 'gen/generator-app/**'
+      - 'gen/platforms/**'
+      - 'gen/scripts/sync_platforms.py'
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Refresh upstream RTL from both platform repositories
+        run: python3 gen/scripts/sync_platforms.py
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: gen/generator-app/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+        working-directory: gen/generator-app
+      - name: Check Studio source
+        run: npm run lint
+        working-directory: gen/generator-app
+      - name: Install RTL linter
+        run: command -v verilator || (sudo apt-get update && sudo apt-get install -y verilator)
+      - name: Verify both generated platforms
+        run: npm run verify:rtl
+        working-directory: gen/generator-app
+        env:
+          VERILATOR_LEGACY_INIT: '1'
+      - name: Build generator
+        run: npm run build
+        working-directory: gen/generator-app
+        env:
+          GITHUB_PAGES: 'true'
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: gen/generator-app/dist
+      - id: deployment
+        uses: actions/deploy-pages@v4

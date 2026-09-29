@@ -1,0 +1,12 @@
+{
+  "eulsukdo": {
+    "repository": "https://github.com/VARZero/EULSUKDO_LSQ.git",
+    "commit": "71d1d171c3dd79d431d512326f9583cfbc19c95c",
+    "path": "gen/src/RTL"
+  },
+  "oryukdo": {
+    "repository": "https://github.com/VARZero/ORYUKDO.git",
+    "commit": "6dbd235b8d68c4ec922bfd7e34341f4dabc55d8c",
+    "path": "RTL"
+  }
+}

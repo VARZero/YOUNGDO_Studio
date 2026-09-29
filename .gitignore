@@ -1,0 +1,5 @@
+gen/generator-app/node_modules/
+gen/generator-app/dist/
+__pycache__/
+*.pyc
+.DS_Store
