@@ -308,7 +308,7 @@ function App() {
     !immediateExpression(fmt, decoderConfig.instImm, decoderConfig.instBitWidth));
   const downloadError = configError || (invalidImmediate
     ? `${invalidImmediate.name} 즉시값 비트 범위가 겹치거나 유효하지 않습니다.` : null) ||
-    (!projectName.trim() ? '프로젝트명을 입력해야 ZIP을 받을 수 있습니다.' : null);
+    (!projectName.trim() ? 'ZIP을 생성하려면 프로젝트 이름을 입력하세요.' : null);
   const generatedCode = configError ? '' : generateRTL(rtlConfig);
   const generatedDecoderCode = config.decoderSource === 'external' || configError || invalidImmediate ? null :
     generateDecoderRTL(decoderConfig, formatsList, instructions, config.coresList);

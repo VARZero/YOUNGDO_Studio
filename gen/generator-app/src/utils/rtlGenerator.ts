@@ -40,7 +40,7 @@ export function validateSchedulerConfig(config: SchedulerConfig): string | null 
   if (config.predictorMode !== undefined && config.predictorMode !== 'static' && config.predictorMode !== 'external')
     return '분기예측기 설정이 올바르지 않습니다.';
   if (config.platform !== 'oryukdo' && config.predictorMode === 'external')
-    return '외부 분기예측기는 오륙도 프로파일에서 선택하세요.';
+    return '외부 분기예측기는 오륙도에서만 사용할 수 있습니다.';
   if (config.decoderSource !== undefined && config.decoderSource !== 'generated' && config.decoderSource !== 'external')
     return '디코더 입력 방식을 선택하세요.';
   const positive = [config.decodeWidth, config.phyRegs, config.robEntries, config.prmUpdate,
@@ -49,16 +49,16 @@ export function validateSchedulerConfig(config: SchedulerConfig): string | null 
   if (positive.some(value => !Number.isSafeInteger(value) || value < 1)) return '모든 구조 및 ISA 파라미터는 1 이상의 정수여야 합니다.';
   if (config.phyRegs < (config.instRegs ?? 32)) return '물리 레지스터 수는 ISA 레지스터 수 이상이어야 합니다.';
   if (config.robEntries < config.decodeWidth || config.phyRegs < config.decodeWidth)
-    return 'IST와 물리 레지스터 수는 디코드 폭 이상이어야 합니다.';
-  if (config.flowWindows < 2 || config.robEntries < 2) return 'Flow window와 IST는 각각 2개 이상이어야 합니다.';
+    return 'IST 엔트리 수와 물리 레지스터 수는 각각 디코드 폭 이상이어야 합니다.';
+  if (config.flowWindows < 2 || config.robEntries < 2) return '플로 윈도 수와 IST 엔트리 수는 각각 2 이상이어야 합니다.';
   if (config.instOperands !== undefined && config.instOperands !== 2)
-    return '현재 디코더 생성은 소스 오퍼랜드 2개를 지원합니다.';
+    return '소스 피연산자 수는 현재 2개만 지원합니다.';
   if (!config.coresList || config.coresList.length < 2 || config.coresList.some(core => !Number.isSafeInteger(core.count) || core.count < 1))
-    return '실행 경로를 2종류 이상 만들고 각 경로에 코어를 1개 이상 배치하세요.';
+    return 'EX 실행 경로를 2개 이상 만들고 각 경로에 실행 유닛을 1개 이상 배치하세요.';
   if (config.enableMemoryOrder) {
     const memoryCore = config.coresList.find(core => core.id === config.memoryCoreId);
     if (!memoryCore) return 'LSQ를 사용할 메모리 EX 경로를 선택하세요.';
-    if (memoryCore.count !== 1) return '현재 LSQ는 메모리 EX 인스턴스 1개만 지원합니다.';
+    if (memoryCore.count !== 1) return 'LSQ에 연결할 메모리 EX 경로의 실행 유닛 수를 1로 설정하세요.';
   }
   if (!/^[a-zA-Z_][a-zA-Z_0-9]*$/.test(config.isaName ?? 'eulsukdo'))
     return 'ISA 이름은 SystemVerilog 식별자로 작성하세요.';

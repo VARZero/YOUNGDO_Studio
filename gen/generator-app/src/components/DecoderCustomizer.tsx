@@ -231,7 +231,7 @@ export const DecoderCustomizer: React.FC<DecoderCustomizerProps> = ({
               }}
               value={decConfig.isaName}
               onChange={(e) => onChangeDecConfig({ ...decConfig, isaName: e.target.value.toLowerCase().replace(/\s+/g, '') })}
-              placeholder="e.g. rv32i, mips, custom"
+              placeholder={t('e.g. rv32i, mips, custom')}
             />
           </div>
 
@@ -462,7 +462,7 @@ export const DecoderCustomizer: React.FC<DecoderCustomizerProps> = ({
                 <th style={{ padding: '6px', width: '60px' }}>uOp</th>
                 <th style={{ padding: '6px' }}>{t('New reg')}</th>
                 <th style={{ padding: '6px' }}>{t('Control')}</th>
-                <th style={{ padding: '6px', textAlign: 'center' }}>{t('Edit')}</th>
+                <th style={{ padding: '6px', textAlign: 'center' }}>{t('Remove')}</th>
               </tr>
             </thead>
             <tbody>
@@ -523,7 +523,7 @@ export const DecoderCustomizer: React.FC<DecoderCustomizerProps> = ({
                             <span className="decoder-cond-name">{fd.name}:</span>
                             <input
                               type="text"
-                              placeholder="e.g. 7'b0110011"
+                              placeholder={t("e.g. 7'b0110011")}
                               className="decoder-cond-input"
                               value={inst.conditions[fd.name] || ''}
                               onChange={(e) => handleUpdateInstructionCondition(inst.id, fd.name, e.target.value)}
@@ -605,7 +605,7 @@ export const DecoderCustomizer: React.FC<DecoderCustomizerProps> = ({
                         className="decoder-remove-btn"
                         onClick={() => handleRemoveInstruction(inst.id)}
                       >
-                        Remove
+                        {t('Remove')}
                       </button>
                     </td>
 

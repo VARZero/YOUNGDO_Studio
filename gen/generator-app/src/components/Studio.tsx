@@ -160,7 +160,7 @@ export function Studio(props: StudioProps) {
           </div>
           <div className="studio-decoder-overview">
             <div><span className="studio-eyebrow">{t('Input lanes')}</span><strong>{config.decodeWidth}</strong><small>{t('Decoded bundles per cycle')}</small></div>
-            <div><span className="studio-eyebrow">{t('ISA width')}</span><strong>{decoderConfig.instBitWidth} bit</strong><small>{decoderConfig.isaName}</small></div>
+            <div><span className="studio-eyebrow">{t('ISA width')}</span><strong>{decoderConfig.instBitWidth} {t('bits')}</strong><small>{decoderConfig.isaName}</small></div>
             <div><span className="studio-eyebrow">{t('EX paths')}</span><strong>{config.coresList.length}</strong><small>{config.coresList.map(core => core.name).join(' · ')}</small></div>
           </div>
           {externalDecode ? <div className="studio-decode-signals">
