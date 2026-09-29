@@ -1,6 +1,7 @@
 import { useState, type ChangeEvent, type RefObject } from 'react';
 import { DecoderCustomizer } from './DecoderCustomizer';
 import { CodePreview } from './CodePreview';
+import { IntegrationGuide } from './IntegrationGuide';
 import { sourceVersions, type CoreTypeConfig, type SchedulerConfig } from '../utils/rtlGenerator';
 import type { DecoderParamConfig, InstructionConfig, InstructionFormat } from '../utils/decoderGenerator';
 import { type Language, localizedError, tr } from '../utils/locale';
@@ -214,6 +215,7 @@ export function Studio(props: StudioProps) {
               <div className="studio-validation-actions"><button className="studio-button" onClick={() => setShowSource(!showSource)}>{showSource ? t('Hide source') : t('Inspect generated RTL')}</button><button className="studio-button studio-button-primary" onClick={onDownloadProject} disabled={!!downloadError}>{t('Generate ZIP')} →</button></div>
               {showSource && <div className="studio-preview"><CodePreview key={isOryukdo ? 'oryukdo' : 'eulsukdo'} platform={config.platform} language={language} code={generatedCode} decoderCode={generatedDecoderCode} decoderFileName={`${decoderConfig.isaName}_decoder.sv`} /></div>}
               <div className="studio-note">{t('The editor checks configuration rules. Your project supplies EX, instruction and data memory, and ORYUKDO CSR logic. Lint the exported top during integration.')}</div>
+              <IntegrationGuide language={language} config={config} />
             </>}
           </main>
           <aside className="studio-details">

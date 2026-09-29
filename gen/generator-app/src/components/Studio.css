@@ -101,3 +101,23 @@
 .studio-decoder-page .decoder-flags{display:grid;gap:5px;font-size:12px}
 .studio-decoder-page .decoder-remove-btn{border:1px solid #855459;border-radius:7px;background:#3c2c35;color:#ffc0b4;padding:7px 10px;font-size:12px;cursor:pointer}
 .studio-decoder-page .decoder-remove-btn:hover{background:#59383f}
+
+/* Post-export integration manual. */
+.studio-integration-guide{margin-top:28px;padding-top:24px;border-top:1px solid #385360;min-width:0}
+.studio-integration-guide h2{margin:7px 0 0;font-size:22px;line-height:1.4}
+.studio-integration-guide p,.studio-integration-guide li{font-size:14px;line-height:1.8;color:#b8ccd5;overflow-wrap:anywhere}
+.studio-integration-guide code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;color:#cce5ef;font-size:12px;overflow-wrap:anywhere}
+.studio-guide-start{padding-left:22px;margin:16px 0 24px}
+.studio-integration-guide li+li{margin-top:10px}
+.studio-guide-section{margin-top:12px;border:1px solid #385360;border-radius:10px;background:#192a34;overflow:hidden}
+.studio-guide-section summary{padding:17px 18px;color:#edf3f5;font-size:15px;font-weight:650;cursor:pointer;line-height:1.5}
+.studio-guide-section summary:focus-visible{outline:2px solid #ffad80;outline-offset:-4px}
+.studio-guide-section[open] summary{border-bottom:1px solid #385360;background:#21343f}
+.studio-guide-body{padding:6px 18px 20px;min-width:0}
+.studio-guide-body h3{margin:24px 0 10px;font-size:15px;color:#edf3f5}
+.studio-guide-body ul,.studio-guide-body ol{padding-left:22px}
+.studio-guide-code{max-width:100%;overflow-x:auto;padding:15px;background:#101e27;border:1px solid #314a58;border-radius:8px;line-height:1.7;white-space:pre}
+.studio-guide-code code{overflow-wrap:normal}
+.studio-guide-file{display:block;padding:12px 14px;background:#101e27;border-radius:7px}
+.studio-guide-callout{padding:12px 14px;border-left:3px solid #ffad80;background:#243642;border-radius:0 6px 6px 0}
+@media(max-width:740px){.studio-integration-guide h2{font-size:19px}.studio-guide-section summary{padding:14px}.studio-guide-body{padding:4px 14px 16px}}
