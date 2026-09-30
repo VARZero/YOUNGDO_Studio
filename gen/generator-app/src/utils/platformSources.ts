@@ -66,7 +66,7 @@ export const sourceVersions = {
   },
   "oryukdo": {
     "repository": "https://github.com/VARZero/ORYUKDO.git",
-    "commit": "6dbd235b8d68c4ec922bfd7e34341f4dabc55d8c",
+    "commit": "63cfd208b6f69ed684024cd656cb1a37c4b73dc0",
     "path": "RTL"
   }
 } as const;

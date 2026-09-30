@@ -64,6 +64,8 @@ try {
     if (Object.keys(rtlSources).length !== expectedCount ||
         (rtlSources['retirement_frontier.sv'] !== undefined) !== isOryukdo)
       throw new Error(`${profile}: wrong source repository selected`);
+    if (isOryukdo && /\$countones\s*\(/.test(rtlSources['eulsukdo_scheduler.sv']))
+      throw new Error(`${profile}: ORYUKDO scheduler uses $countones, which Vivado 2020.2 cannot synthesize for variable masks`);
     if (sourceVersions[extra.platform].commit.length !== 40)
       throw new Error(`${profile}: missing source commit`);
     const archive = buildSourceBundle(top, null, config.isaName, 'sample', '{}', extra.platform);
