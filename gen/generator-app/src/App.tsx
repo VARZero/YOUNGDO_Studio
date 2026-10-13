@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Studio } from './components/Studio';
-import { type Language, tr } from './utils/locale';
+import { type Language, localizedError, tr } from './utils/locale';
 import { type SchedulerConfig, generateRTL, validateSchedulerConfig } from './utils/rtlGenerator';
 import {
   type DecoderParamConfig,
@@ -24,18 +24,20 @@ function App() {
     platform: 'eulsukdo',
     predictorMode: 'static',
     decoderSource: 'generated',
-    decodeWidth: 4,
+    decodeWidth: 2,
     phyRegs: 64,
-    robEntries: 64,
+    robEntries: 128,
+    rsFifoEntries: 128,
     coresList: [
-      { id: '2', name: 'ALU', count: 3, stroke: '#48b4d5' },
       { id: '1', name: 'Branch', count: 1, stroke: '#ff8052' },
+      { id: '2', name: 'ALU', count: 3, stroke: '#48b4d5' },
       { id: '3', name: 'Memory', count: 1, stroke: '#ffcc00' }
     ],
-    prmUpdate: 3,
+    prmUpdate: 5,
     prmBuffer: 4,
     unallocatePhyreg: 4,
     flowWindows: 8,
+    flowPcMaxRange: 16,
     enableMemoryOrder: false,
     memoryCoreId: '3',
   });
@@ -278,6 +280,11 @@ function App() {
       try {
         const parsed = JSON.parse(event.target?.result as string);
         if (validateFullConfig(parsed)) {
+          const error = validateSchedulerConfig({ ...parsed.scheduler, ...parsed.decoder });
+          if (error) {
+            alert(localizedError(language, error));
+            return;
+          }
           setProjectName(parsed.projectName ?? 'my_project');
           setConfig({
             ...parsed.scheduler,

@@ -2,6 +2,7 @@ import { useState, type ChangeEvent, type RefObject } from 'react';
 import { DecoderCustomizer } from './DecoderCustomizer';
 import { CodePreview } from './CodePreview';
 import { IntegrationGuide } from './IntegrationGuide';
+import { StructureParameters } from './StructureParameters';
 import { sourceVersions, type CoreTypeConfig, type SchedulerConfig } from '../utils/rtlGenerator';
 import type { DecoderParamConfig, InstructionConfig, InstructionFormat } from '../utils/decoderGenerator';
 import { type Language, localizedError, tr } from '../utils/locale';
@@ -126,8 +127,8 @@ export function Studio(props: StudioProps) {
           <button aria-pressed={!isOryukdo} className={!isOryukdo ? 'selected' : ''} onClick={() => changePlatform('eulsukdo')}>
             <span className="studio-radio" /><span><strong>EULSUKDO</strong><small>{t('Application OoO engine')}</small></span>
           </button>
-          <button aria-pressed={isOryukdo} className={isOryukdo ? 'selected' : ''} onClick={() => changePlatform('oryukdo')}>
-            <span className="studio-radio" /><span><strong>ORYUKDO</strong><small>{t('CPU extension')}</small></span>
+          <button aria-pressed={isOryukdo} className={isOryukdo ? 'selected' : ''} disabled title={t('Coming later')}>
+            <span className="studio-radio" /><span><strong>ORYUKDO</strong><small>{t('Coming later')}</small></span>
           </button>
         </div>
         <div className="studio-separator" />
@@ -140,10 +141,14 @@ export function Studio(props: StudioProps) {
         <div className="studio-eyebrow studio-shape-title">{t('Core shape')}</div>
         <div className="studio-setting"><span>{t('Decode width')}</span><div className="studio-stepper"><button aria-label={t('Decrease decode width')} onClick={() => stepDecode(-1)}>−</button><input aria-label={t('Decode width')} type="number" min="1" max="8" value={config.decodeWidth} onChange={e => numberField('decodeWidth', Number(e.target.value))} /><button aria-label={t('Increase decode width')} onClick={() => stepDecode(1)}>+</button></div></div>
         <div className="studio-setting"><span>{t('EX issue ports')}</span><strong>{coreCount}</strong></div>
+        <div className="studio-setting"><span>{t('RS FIFO entries per path')}</span><input className="studio-small-number" aria-label={t('RS FIFO entries per path')} type="number" min="1" value={config.rsFifoEntries ?? 128} onChange={e => patch({ rsFifoEntries: Number(e.target.value) })} /></div>
+        <div className="studio-setting"><span>{t('IST issue width')}</span><input className="studio-small-number" aria-label={t('IST issue width')} title={t('Blank means automatic')} placeholder={String(coreCount)} type="number" min="1" value={config.istIssueWidth ?? ''} onChange={e => patch({ istIssueWidth: e.target.value === '' ? undefined : Number(e.target.value) })} /></div>
+        <div className="studio-setting"><span>{t('IST SRAM banks')}</span><input className="studio-small-number" aria-label={t('IST SRAM banks')} title={t('Blank means automatic')} placeholder={String(2 ** Math.ceil(Math.log2(Math.max(config.decodeWidth, config.istIssueWidth ?? coreCount))))} type="number" min="1" value={config.istBanks ?? ''} onChange={e => patch({ istBanks: e.target.value === '' ? undefined : Number(e.target.value) })} /></div>
+        <small className="studio-muted">{t('IST blanks follow EX width and decode width automatically.')}</small>
         <div className="studio-setting"><span>{t('IST / frontier entries')}</span><input className="studio-small-number" aria-label={t('IST and frontier entries')} type="number" min="2" value={config.robEntries} onChange={e => numberField('robEntries', Number(e.target.value))} /></div>
         <div className="studio-setting"><span>{t('Physical registers')}</span><input className="studio-small-number" aria-label={t('Physical registers')} type="number" min="1" value={config.phyRegs} onChange={e => numberField('phyRegs', Number(e.target.value))} /></div>
         <div className="studio-separator" />
-        <label className="studio-setting studio-switch-row"><span>{t('Memory ordering')}</span><input type="checkbox" checked={!!config.enableMemoryOrder} onChange={e => patch({ enableMemoryOrder: e.target.checked })} /><span className="studio-switch" /></label>
+        <label className="studio-setting studio-switch-row"><span>LSQ · {t('Coming later')}</span><input type="checkbox" checked={false} disabled title={t('Coming later')} /><span className="studio-switch" /></label>
         <div className="studio-setting"><span>{t('Precise recovery')}</span><strong className={isOryukdo ? 'studio-green' : 'studio-muted'}>{isOryukdo ? t('ON') : t('OFF')}</strong></div>
         <div className="studio-profile-check"><strong>{t('PROFILE CHECK')}</strong><span>{displayError ?? t('Ports and widths consistent')}</span></div>
       </aside>
@@ -174,12 +179,13 @@ export function Studio(props: StudioProps) {
         </div> : <div className="studio-main-grid">
           <main className="studio-center">
             {section === 'architecture' && <>
-              <div className="studio-hero"><div><span className="studio-eyebrow">01 / {t('Choose platform')}</span><h1>{t('Processor configuration')}</h1><p>{t('Select a base platform, then set ISA, EX paths and optional memory ordering.')}</p></div><span className="studio-hero-badge">{isOryukdo ? 'ORYUKDO' : 'EULSUKDO'}</span></div>
+              <div className="studio-hero"><div><span className="studio-eyebrow">01 / {t('Choose platform')}</span><h1>{t('Processor configuration')}</h1><p>{t('Configure the current EULSUKDO scheduler, ISA and EX paths.')}</p></div><span className="studio-hero-badge">{isOryukdo ? 'ORYUKDO' : 'EULSUKDO'}</span></div>
               <div className="studio-platform-grid" role="group" aria-label={t('Choose platform')}>
-                <button aria-pressed={!isOryukdo} className={!isOryukdo ? 'selected' : ''} onClick={() => changePlatform('eulsukdo')}><span>01 / EULSUKDO</span><strong>{t('Application OoO platform')}</strong><small>{t('Shared ISA and EX configuration. LSQ optional.')}</small></button>
-                <button aria-pressed={isOryukdo} className={isOryukdo ? 'selected' : ''} onClick={() => changePlatform('oryukdo')}><span>02 / ORYUKDO</span><strong>{t('CPU platform extension')}</strong><small>{t('Recovery and predictor included. LSQ optional; CSR supplied by user.')}</small></button>
+                <button aria-pressed={!isOryukdo} className={!isOryukdo ? 'selected' : ''} onClick={() => changePlatform('eulsukdo')}><span>01 / EULSUKDO</span><strong>{t('Application OoO platform')}</strong><small>{t('Current Gen2 scheduler. Configure ISA and EX paths.')}</small></button>
+                <button aria-pressed={isOryukdo} className={isOryukdo ? 'selected' : ''} disabled title={t('Coming later')}><span>02 / ORYUKDO</span><strong>{t('CPU platform extension')}</strong><small>{t('Coming later')}</small></button>
               </div>
-              <div className="studio-platform-options"><div><span className="studio-eyebrow">{t('Memory ordering')}</span><strong>{t('Load / store queue')}</strong><small>{t('Available on both platforms')}</small></div><label className="studio-check"><input type="checkbox" checked={!!config.enableMemoryOrder} onChange={e => patch({ enableMemoryOrder: e.target.checked })} /> {t('Enable LSQ')}</label>{config.enableMemoryOrder && <label className="studio-select-label">{t('Memory EX path')}<select value={config.memoryCoreId ?? ''} onChange={e => patch({ memoryCoreId: e.target.value })}><option value="">{t('Select a path')}</option>{config.coresList.map(c => <option value={c.id} key={c.id}>{c.name} ({c.count})</option>)}</select></label>}</div>
+              <div className="studio-platform-options"><div><span className="studio-eyebrow">{t('Memory ordering')}</span><strong>{t('Load / store queue')}</strong><small>{t('Coming later')}</small></div><label className="studio-check"><input type="checkbox" checked={false} disabled title={t('Coming later')} /> {t('Coming later')}</label>{config.enableMemoryOrder && <label className="studio-select-label">{t('Memory EX path')}<select value={config.memoryCoreId ?? ''} onChange={e => patch({ memoryCoreId: e.target.value })}><option value="">{t('Select a path')}</option>{config.coresList.map(c => <option value={c.id} key={c.id}>{c.name} ({c.count})</option>)}</select></label>}</div>
+              <StructureParameters language={language} config={config} onChange={onConfigChange} />
               <div className="studio-section-heading"><span className="studio-eyebrow">{t('Live structure')}</span><small>{config.decodeWidth}D / {coreCount}I / {config.robEntries} {t('entries')}</small></div>
               <div className="studio-pipeline">
                 <div className="studio-stages">
@@ -189,18 +195,18 @@ export function Studio(props: StudioProps) {
                   <div className="studio-stage schedule"><small>04 {t('SCHEDULE')}</small><strong>IST + RS</strong><span>{isOryukdo ? t('age tagged issue') : t('ready list issue')}</span></div>
                   <div className="studio-stage execute"><small>05 {t('EXECUTE')}</small><strong>{t('External EX')} ×{coreCount}</strong><span>{config.coresList.map(c => `${c.name} ×${c.count}`).join(' · ')}</span></div>
                 </div>
-                <div className="studio-return-path"><div className="studio-stage memory"><small>{t('MEMORY ORDER')}</small><strong>{config.enableMemoryOrder ? isOryukdo ? t('LSQ + store gate') : 'LSQ' : t('Optional LSQ')}</strong></div><div className="studio-stage frontier"><small>{isOryukdo ? t('ORDERED COMMIT') : t('Flow completion')}</small><strong>{isOryukdo ? t('Retirement frontier') : 'FCL'}</strong></div><div className="studio-stage wbc"><small>{t('RESULT ACCEPTANCE')}</small><strong>WBC · {isOryukdo ? t('key + age') : t('flow + PC')}</strong></div></div>
+                <div className="studio-return-path"><div className="studio-stage memory"><small>{t('MEMORY ORDER')}</small><strong>{config.enableMemoryOrder ? isOryukdo ? t('LSQ + store gate') : 'LSQ' : t('Coming later')}</strong></div><div className="studio-stage frontier"><small>{isOryukdo ? t('ORDERED COMMIT') : t('Flow completion')}</small><strong>{isOryukdo ? t('Retirement frontier') : 'FCL'}</strong></div><div className="studio-stage wbc"><small>{t('RESULT ACCEPTANCE')}</small><strong>WBC · {isOryukdo ? t('key + age') : t('flow + PC')}</strong></div></div>
                 <div className="studio-recovery-line">↶ {isOryukdo ? t('mispredict / exception → flush + redirect') : t('completion and register reuse')}</div>
               </div>
               <div className="studio-section-heading"><span className="studio-eyebrow">{t('Execution map')}</span><button className="studio-text-button" onClick={() => setSection('execution')}>{t('Edit paths →')}</button></div>
               <div className="studio-table-wrap"><table><thead><tr><th>{t('Path')}</th><th>{t('Issue')}</th><th>WBC</th><th>{t('Recovery behavior')}</th></tr></thead><tbody>{config.coresList.map((core, index) => { const first = config.coresList.slice(0, index).reduce((sum, c) => sum + c.count, 0); const memory = config.enableMemoryOrder && core.id === config.memoryCoreId; return <tr key={core.id}><td><i style={{ background: core.stroke }} />{core.name}</td><td>{core.count}</td><td>{core.count === 1 ? first : `${first}–${first + core.count - 1}`}</td><td>{memory ? isOryukdo ? t('AGU → LSQ → gated commit') : t('AGU → LSQ') : isOryukdo ? t('tagged result + flush') : t('flow completion')}</td></tr>; })}</tbody></table></div>
-              <div className="studio-export-summary"><span className="studio-eyebrow">{t('Files to export')}</span><strong>top.sv &nbsp; {!externalDecode && 'decoder.sv　'} RTL/</strong><small>{t('The ZIP contains the selected top and RTL sources. EX is supplied by your project; ORYUKDO CSR is external.')}</small><small>{isOryukdo ? 'VARZero/ORYUKDO' : 'VARZero/EULSUKDO_LSQ'} · {sourceVersions[isOryukdo ? 'oryukdo' : 'eulsukdo'].commit.slice(0, 12)}</small></div>
+              <div className="studio-export-summary"><span className="studio-eyebrow">{t('Files to export')}</span><strong>top.sv &nbsp; {!externalDecode && 'decoder.sv　'} RTL/</strong><small>{t('The ZIP contains the current Gen2 top and RTL. Supply EX and memory in your project.')}</small><small>{'VARZero/EULSUKDO · gen2'} · {sourceVersions.eulsukdo.commit.slice(0, 12)}</small></div>
             </>}
             {section === 'execution' && <>
               <div className="studio-page-heading"><span className="studio-eyebrow">03 / {t('EX modules')}</span><h1>{t('Execution paths')}</h1><p>{t('Each path has a decoder mapping and a fixed group of issue and WBC lanes. EX logic remains replaceable RTL.')}</p></div>
               <div className="studio-path-list">{config.coresList.map((core, index) => { const first = config.coresList.slice(0, index).reduce((sum, c) => sum + c.count, 0); return <div className="studio-path-card" key={core.id} style={{ borderLeftColor: core.stroke }}><div className="studio-path-top"><span>{t('PATH')} {String(index).padStart(2, '0')}</span><div><button onClick={() => moveCore(index, -1)} disabled={index === 0} aria-label={`${core.name} ${t('Move up')}`}>↑</button><button onClick={() => moveCore(index, 1)} disabled={index === config.coresList.length - 1} aria-label={`${core.name} ${t('Move down')}`}>↓</button><button onClick={() => removeCore(core.id)} disabled={config.coresList.length <= 2} aria-label={`${core.name} ${t('Remove')}`}>×</button></div></div><label>{t('Name')}<input value={core.name} onChange={e => updateCore(core.id, { name: e.target.value })} /></label><label>{t('Issue and WBC lanes')}<input type="number" min="1" max="8" value={core.count} onChange={e => updateCore(core.id, { count: Number(e.target.value) })} /></label><small>WBC {core.count === 1 ? first : `${first}–${first + core.count - 1}`} · {isOryukdo ? t('EX provides result key, age and flush handling.') : t('Connect the EX result and completion ports.')}</small></div>; })}</div>
               <button className="studio-button studio-add" onClick={addCore}>{t('+ Add EX path')}</button>
-              <div className="studio-note">{t('The generator assigns lane ranges in path order. A selected LSQ path must contain one issue port and reserves its WBC lane.')}</div>
+              <div className="studio-note">{t('The generator assigns issue and WBC lane ranges in path order. LSQ is coming later.')}</div>
             </>}
             {section === 'recovery' && <>
               <div className="studio-page-heading"><span className="studio-eyebrow">04 / ORYUKDO</span><h1>{t('CPU integration')}</h1><p>{t('Recovery and the predictor interface are included. Supply the CSR and trap controller in your project.')}</p></div>
@@ -214,7 +220,7 @@ export function Studio(props: StudioProps) {
               {displayError && <div className="studio-error" role="alert">{displayError}</div>}
               <div className="studio-validation-actions"><button className="studio-button" onClick={() => setShowSource(!showSource)}>{showSource ? t('Hide source') : t('Inspect generated RTL')}</button><button className="studio-button studio-button-primary" onClick={onDownloadProject} disabled={!!downloadError}>{t('Generate ZIP')} →</button></div>
               {showSource && <div className="studio-preview"><CodePreview key={isOryukdo ? 'oryukdo' : 'eulsukdo'} platform={config.platform} language={language} code={generatedCode} decoderCode={generatedDecoderCode} decoderFileName={`${decoderConfig.isaName}_decoder.sv`} /></div>}
-              <div className="studio-note">{t('The editor checks configuration rules. Your project supplies EX, instruction and data memory, and ORYUKDO CSR logic. Lint the exported top during integration.')}</div>
+              <div className="studio-note">{t('Settings are checked here. Connect EX and memory, then verify the exported RTL in your system.')}</div>
               <IntegrationGuide language={language} config={config} />
             </>}
           </main>

@@ -1,24 +1,30 @@
 # 플랫폼 RTL 소스
 
-| 선택 | 소스 저장소 | 원본 경로 | 이 작업본의 경로 |
-| --- | --- | --- | --- |
-| 을숙도 | https://github.com/VARZero/EULSUKDO_LSQ | `gen/src/RTL` | `gen/platforms/eulsukdo/RTL` |
-| 오륙도 | https://github.com/VARZero/ORYUKDO | `RTL` | `gen/platforms/oryukdo/RTL` |
+현재 제공하는 플랫폼은 **EULSUKDO Gen2**뿐입니다. 원본은 `https://github.com/VARZero/EULSUKDO.git`의 `gen2/src/RTL`이며, `gen/platforms/eulsukdo/RTL`에 8개 파일을 그대로 동봉합니다. LSQ와 ORYUKDO는 추후 제공이며 이전 RTL은 포함하지 않습니다.
 
-`versions.json`은 각각의 원격 커밋을 기록합니다. 생성기에서 플랫폼을 바꾸면 해당 스냅샷의 스케줄러로 top을 만들고, ZIP에는 그 플랫폼의 RTL 파일만 넣습니다. 오륙도는 을숙도 RTL을 섞지 않고 오륙도 저장소에 있는 전체 RTL을 사용합니다. 디코더와 EX는 영도 설정 또는 사용자 RTL이 담당합니다. CSR은 사용자 구현입니다.
+`versions.json`에는 원본 커밋과 파일별 SHA-256이 있습니다. 같은 정보가 생성 ZIP의 `SOURCE_VERSION.json`에 포함됩니다. 동기화는 커밋된 파일을 가져오므로 로컬 미커밋 수정은 포함하지 않습니다.
 
-최신 원격 소스로 갱신:
+## 현재 버전 재현
 
 ```sh
 python3 gen/scripts/sync_platforms.py
+```
+
+인자를 생략하면 `versions.json`의 커밋을 원격에서 받아 재현합니다. 매일 실행하는 Pages 작업도 이 버전을 유지합니다. 일반 앱 빌드는 체크인된 파일을 사용하므로 소스 동기화나 네트워크가 필요하지 않습니다.
+
+## 옆 디렉터리의 현재 소스로 교체
+
+```sh
+python3 gen/scripts/sync_platforms.py --local-repo ../EULSUKDO --ref main
+```
+
+원격 `main`을 명시적으로 적용할 때는 `python3 gen/scripts/sync_platforms.py --ref main`을 사용합니다. 현재 Gen2가 없는 리비전은 거절합니다. 소스를 바꾼 뒤 다음을 실행하고 버전 기록과 RTL을 함께 커밋하세요.
+
+```sh
 cd gen/generator-app
-npm ci
+npm run lint
 npm run build
 npm run verify:rtl
 ```
 
-동기화 스크립트는 두 저장소의 기본 브랜치를 새로 clone한 후 RTL 디렉터리와 import 목록을 함께 갱신합니다. 빌드할 때 인터넷이 없어도 체크인된 소스로 생성기가 동작합니다. GitHub Pages 작업은 빌드마다 동기화하며, 매일 한 번 예약 빌드도 수행합니다. 원격 인터페이스가 바뀌어 호환되지 않으면 검증 또는 빌드를 실패시키고 수동 반영이 필요합니다.
-
-현재 원본 레포에는 EX·메모리·CSR 구현이 포함되지 않습니다. ZIP 역시 완성 CPU가 아니라 외부 모듈을 연결할 수 있는 top과 RTL 소스입니다.
-
-오륙도 스케줄러는 Vivado 2020.2가 가변 신호에 대한 `$countones`를 합성하지 못하는 문제를 피하도록 원본 RTL에서 비트 합산 함수로 구현합니다. `verify:rtl`은 동기화된 오륙도 RTL에 해당 호출이 다시 들어오면 배포를 중단합니다. Vivado 합성 확인은 별도로 수행해야 하며, FPGA 자원 사용량과 타이밍 충족은 선택한 설정과 디바이스에 따라 달라집니다.
+검증은 소스 해시, 파라미터 전달, 생성·외부 디코더 모드의 연결, ZIP의 포함 파일과 기능 차단을 확인합니다. Verilator의 원본 PRM 관련 `UNOPTFLAT` 경고는 로그에 남깁니다. FPGA 자원·타이밍 및 시스템 동작 검증은 별도로 수행합니다.

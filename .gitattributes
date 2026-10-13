@@ -1,0 +1,2 @@
+# Vendored RTL must preserve upstream bytes for SOURCE_VERSION SHA-256 checks.
+gen/platforms/*/RTL/*.sv -text

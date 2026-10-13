@@ -1,6 +1,17 @@
 export type Language = 'ko' | 'en';
 
 const korean: Record<string, string> = {
+  'Coming later': '추후 제공',
+  'Current Gen2 scheduler. Configure ISA and EX paths.': '현재 Gen2 스케줄러로 ISA·EX를 구성합니다.',
+  'Configure the current EULSUKDO scheduler, ISA and EX paths.': '현재 을숙도 스케줄러의 구조, ISA와 EX 실행 경로를 설정하세요.',
+  'The ZIP contains the current Gen2 top and RTL. Supply EX and memory in your project.': 'ZIP에는 현재 Gen2의 최상위 연결 모듈과 RTL이 포함됩니다. EX와 메모리는 직접 연결하세요.',
+  'The generator assigns issue and WBC lane ranges in path order. LSQ is coming later.': '경로 순서대로 발행·WBC 레인을 배정합니다. LSQ는 추후 제공됩니다.',
+  'Settings are checked here. Connect EX and memory, then verify the exported RTL in your system.': '이 화면은 설정값을 검사합니다. EX와 메모리를 연결한 뒤 시스템 전체를 검증하세요.',
+  'RS FIFO entries per path': '경로별 RS FIFO 엔트리',
+  'IST issue width': 'IST 발행 폭',
+  'IST SRAM banks': 'IST SRAM 뱅크 수',
+  'Blank means automatic': '비우면 자동 설정',
+  'IST blanks follow EX width and decode width automatically.': 'IST 값을 비우면 EX 발행 폭과 디코드 폭에 따라 자동 설정합니다.',
   'Processor structure generator': '프로세서 구조 생성기',
   'AGU → LSQ': 'AGU → LSQ',
   'Connect the EX result and completion ports.': 'EX 결과와 완료 포트를 연결합니다.',
@@ -157,6 +168,10 @@ export function tr(language: Language, english: string): string {
 }
 
 const englishErrors: Record<string, string> = {
+  '오륙도는 추후 제공 예정입니다.': 'ORYUKDO is coming later.',
+  'LSQ는 추후 제공 예정입니다.': 'LSQ is coming later.',
+  'IST 발행 폭·뱅크 수와 RS FIFO 엔트리 수는 1 이상의 정수여야 합니다.': 'IST issue width, bank count and RS FIFO entries must be positive integers.',
+  'IST 뱅크 수는 디코드 폭 이상의 2의 거듭제곱이어야 합니다.': 'IST banks must be a power of two and at least the decode width.',
   '플랫폼은 을숙도 또는 오륙도여야 합니다.': 'Choose EULSUKDO or ORYUKDO.',
   '분기예측기 설정이 올바르지 않습니다.': 'Choose a valid branch predictor mode.',
   '외부 분기예측기는 오륙도에서만 사용할 수 있습니다.': 'External prediction requires ORYUKDO.',

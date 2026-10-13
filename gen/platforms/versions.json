@@ -1,12 +1,17 @@
 {
   "eulsukdo": {
-    "repository": "https://github.com/VARZero/EULSUKDO_LSQ.git",
-    "commit": "71d1d171c3dd79d431d512326f9583cfbc19c95c",
-    "path": "gen/src/RTL"
-  },
-  "oryukdo": {
-    "repository": "https://github.com/VARZero/ORYUKDO.git",
-    "commit": "63cfd208b6f69ed684024cd656cb1a37c4b73dc0",
-    "path": "RTL"
+    "repository": "https://github.com/VARZero/EULSUKDO.git",
+    "commit": "975d3599bff47306901c95eb3eccd530ff8c1636",
+    "path": "gen2/src/RTL",
+    "sha256": {
+      "_element_logics.sv": "b330cb3f3af0bc1e0650f40ea11b5d407378718bc6a945f669c1228f1fa8df6d",
+      "eulsukdo_scheduler.sv": "b16bc7a96d0eda8bfafd2f1a870c8447d1122116bd370ed13094c82810c32acc",
+      "flow_control_logic.sv": "95eb5b231dd2437125320167fabf6626c1e7e9346a59c6c6068ffb66644c8c73",
+      "instruction_state_table.sv": "a57825300c6b71ea336c4eda0fb8bbdae74037cfa30fe5a70b1279980323d807",
+      "new_entry_logic.sv": "bab7518424804500c5c9d42fca1802fed3f602f7ba690dd9084c309917e33193",
+      "physical_register_mapper.sv": "17b63277642862da00aa2f98a9ee63536ecf11557498ae7423a018727e99bdca",
+      "ready_station.sv": "e96b4c896dd73d9d4584ee76d3ac73365ebbd753a4fc2ea1afcb202daa75725c",
+      "write_back_concatenation.sv": "9a62e2fdcdd6723a241d5d7e1264be3053427fbf47efa18dc878f6cd6fb41b68"
+    }
   }
 }

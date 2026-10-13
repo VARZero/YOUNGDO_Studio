@@ -8,6 +8,7 @@ on:
       - 'gen/generator-app/**'
       - 'gen/platforms/**'
       - 'gen/scripts/sync_platforms.py'
+      - '.gitattributes'
   schedule:
     - cron: '17 3 * * *'
   workflow_dispatch:
@@ -29,7 +30,7 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
-      - name: Refresh upstream RTL from both platform repositories
+      - name: Verify pinned EULSUKDO Gen2 snapshot
         run: python3 gen/scripts/sync_platforms.py
       - uses: actions/setup-node@v4
         with:
@@ -44,11 +45,9 @@ jobs:
         working-directory: gen/generator-app
       - name: Install RTL linter
         run: command -v verilator || (sudo apt-get update && sudo apt-get install -y verilator)
-      - name: Verify both generated platforms
+      - name: Verify generated EULSUKDO wrappers
         run: npm run verify:rtl
         working-directory: gen/generator-app
-        env:
-          VERILATOR_LEGACY_INIT: '1'
       - name: Build generator
         run: npm run build
         working-directory: gen/generator-app

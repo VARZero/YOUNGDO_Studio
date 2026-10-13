@@ -26,13 +26,15 @@ module physical_register_mapper #(
     parameter int STRUCT_UNALLOCATE_PHYREG              = 4,
     parameter int STRUCT_FLOW_WINDOWS                   = 8,
     parameter int STRUCT_FLOW_PC_MAX_RANGE              = 16,
+    parameter int STRUCT_PRM_OUTPUT_FIFO_DEPTH          = 64,
+    parameter int STRUCT_PRM_INPUT_BUFFER_DEPTH         = 2,
 
     // Synthesis Create Local Parameters
     localparam int _BITWIDTH_IS_INST_REGS               = $clog2(IS_INST_REGS),
     localparam int _BITWIDTH_STRUCT_INST_STATE_ENTRIES  = $clog2(STRUCT_INST_STATE_ENTRIES),
     localparam int _BITWIDTH_STRUCT_PHYREGS             = $clog2(STRUCT_PHYREGS),
     localparam int _BITWIDTH_STRUCT_EX_PATH             = $clog2(STRUCT_EX_PATH),
-    localparam int _BITWIDTH_STRUCT_FLOW_WINDOWS        = $clog2(STRUCT_FLOW_WINDOWS),
+    localparam int _BITWIDTH_STRUCT_FLOW_WINDOWS        = (STRUCT_FLOW_WINDOWS > 1)? $clog2(STRUCT_FLOW_WINDOWS) : 1,
     localparam int _BITWIDTH_READY_PRM                  = _BITWIDTH_STRUCT_INST_STATE_ENTRIES+_BITWIDTH_STRUCT_PHYREGS,
     localparam int _BITWIDTH_FLOW_WINDOWS_PC            = _BITWIDTH_STRUCT_FLOW_WINDOWS
                                                          + IS_INST_PC_BITWIDTH,
@@ -57,8 +59,7 @@ module physical_register_mapper #(
     localparam int _BITWIDTH_STRUCT_RETIRED_PHYREG_MSG  = _BITWIDTH_STRUCT_FLOW_WINDOWS
                                                          + IS_INST_PC_BITWIDTH
                                                          + _BITWIDTH_STRUCT_PHYREGS, // Retired Register
-    localparam int _BITWIDTH_STRUCT_JUMP_BRANCH_INFO    = 1 // Jump Flag
-                                                         + 1 // Jump Register Flag
+    localparam int _BITWIDTH_STRUCT_JUMP_BRANCH_INFO    = 1 // Jump Register Flag
                                                          + 1 // Branch Flag
                                                          + IS_INST_PC_BITWIDTH, // New Program Counter
     localparam int _BITWIDTH_STRUCT_EX_DONE_PC          = _BITWIDTH_STRUCT_FLOW_WINDOWS
@@ -85,169 +86,465 @@ module physical_register_mapper #(
     output wire [(STRUCT_DECODE_NEW_INST *(_BITWIDTH_STRUCT_PHYREGS) )-1:0]            o_nel_phyreg_data,
 
     // Ready Physical Registers Output (IST)
-    output logic [STRUCT_PRM_ENTRY_UPDATE-1:0]                                         o_ist_ready_phyreg_valid, 
+    output wire [STRUCT_PRM_ENTRY_UPDATE-1:0]                                          o_ist_ready_phyreg_valid, 
     output logic [(STRUCT_PRM_ENTRY_UPDATE*(_BITWIDTH_READY_PRM) )-1:0]                o_ist_ready_phyreg_data
 );
 
-    logic [STRUCT_PHYREGS-1:0] wait_pending [0:STRUCT_INST_STATE_ENTRIES-1];
-    logic [STRUCT_PHYREGS-1:0] wait_pending_next [0:STRUCT_INST_STATE_ENTRIES-1];
-    logic [STRUCT_PHYREGS-1:0] wait_map [0:STRUCT_INST_STATE_ENTRIES-1];
-    logic [STRUCT_PHYREGS-1:0] wait_map_next [0:STRUCT_INST_STATE_ENTRIES-1];
-    localparam int MAP_BANKS = (STRUCT_PRM_ENTRY_BUFFER > 0) ? STRUCT_PRM_ENTRY_BUFFER : 1;
-    localparam int MAP_CHUNK = (STRUCT_INST_STATE_ENTRIES+MAP_BANKS-1)/MAP_BANKS;
-    localparam int MAP_COUNT_WIDTH = $clog2(STRUCT_INST_STATE_ENTRIES+1);
-    logic [(_BITWIDTH_STRUCT_PHYREGS*STRUCT_PHYREGS)-1:0] map_addr;
-    logic [(MAP_CHUNK*STRUCT_PHYREGS)-1:0] map_read [0:MAP_BANKS-1];
-    logic [(MAP_CHUNK*STRUCT_PHYREGS)-1:0] map_write [0:MAP_BANKS-1];
-    logic [(MAP_COUNT_WIDTH*STRUCT_PHYREGS)-1:0] map_counter_read, map_counter_write;
-    logic [STRUCT_PHYREGS-1:0] new_wait_for_preg;
-    logic [STRUCT_PRM_ENTRY_UPDATE-1:0] enqueue_valid, enqueue_ready;
-    logic [(_BITWIDTH_READY_PRM*STRUCT_PRM_ENTRY_UPDATE)-1:0] enqueue_data;
-    integer lane, entry, preg;
-    integer wait_entry, wait_preg;
-    integer entry_out, preg_out, enqueue_lane;
-    logic [STRUCT_UNALLOCATE_PHYREG-1:0] unallocate_ready;
+    // Parameters require positive channel/buffer sizes and STRUCT_PHYREGS >= 2.
+    localparam int WAIT_INPUTS                     = STRUCT_DECODE_NEW_INST*IS_INST_OPERANDS;
+    // One blocked bundle + one already-renamed NEL Stage 2 bundle.
+    // Deeper upstream pipelines require a larger buffer / reservation policy.
+    localparam int INPUT_BUFFER_ENTRIES            = (STRUCT_PRM_INPUT_BUFFER_DEPTH < 2)? 2 : STRUCT_PRM_INPUT_BUFFER_DEPTH;
+    localparam int _BITWIDTH_INPUT_BUNDLE           = WAIT_INPUTS*(_BITWIDTH_READY_PRM+1);
+    localparam int _BITWIDTH_INPUT_BUFFER_ADDR      = $clog2(INPUT_BUFFER_ENTRIES);
+    localparam int _BITWIDTH_INPUT_BUFFER_COUNT     = $clog2(INPUT_BUFFER_ENTRIES+1);
+    localparam int COUNTER_CHANNELS                = WAIT_INPUTS+1;
+    localparam int OUTPUT_PUSH_CHANNELS            = STRUCT_PRM_ENTRY_BUFFER+WAIT_INPUTS;
+    localparam int OUTPUT_FIFO_ENTRIES             = (STRUCT_PRM_OUTPUT_FIFO_DEPTH < OUTPUT_PUSH_CHANNELS)?
+                                                        OUTPUT_PUSH_CHANNELS : STRUCT_PRM_OUTPUT_FIFO_DEPTH;
+    localparam int _BITWIDTH_STRUCT_PRM_ENTRY_BUFFER = $clog2(STRUCT_PRM_ENTRY_BUFFER+1);
+    // Four adjacent PHYREGs form a leaf. Merge only the first return-width
+    // candidates at each level; pad the last group / tree with empty leaves.
+    localparam int RETURN_GROUP_SIZE               = 4;
+    localparam int RETURN_GROUPS                   = (STRUCT_PHYREGS+RETURN_GROUP_SIZE-1)/RETURN_GROUP_SIZE;
+    localparam int RETURN_LEAVES                   = 1 << $clog2(RETURN_GROUPS);
+    localparam int RETURN_COUNT_WIDTH              = $clog2(STRUCT_UNALLOCATE_PHYREG+1);
 
-    allocator #(
-        .ENTRIES(STRUCT_PHYREGS-1), .START_VALUE(1),
-        .ALLOCATE_CHANNEL(STRUCT_DECODE_NEW_INST),
-        .UNALLOCATE_CHANNEL(STRUCT_UNALLOCATE_PHYREG)
-    ) U_PRM_PHYREG_ALLOCATOR (
-        .clk(clk), .reset_n(reset_n), .i_flush(1'b0),
-        .i_unallocate(i_fcl_unallocate_phyreg_valid),
-        .o_unallocate_ready(unallocate_ready),
-        .i_unallocate_data(i_fcl_unallocate_phyreg_data),
-        .i_allocate(i_nel_phyreg_get), .o_allocate_valid(o_nel_phyreg_valid),
-        .o_allocate_data(o_nel_phyreg_data)
-    );
+    logic [_BITWIDTH_READY_PRM-1:0]                 wait_input_list       [0:WAIT_INPUTS-1];
+    logic [_BITWIDTH_STRUCT_PHYREGS-1:0]            wait_input_phyreg     [0:WAIT_INPUTS-1];
+    logic [_BITWIDTH_STRUCT_INST_STATE_ENTRIES-1:0] wait_input_istentry   [0:WAIT_INPUTS-1];
+    logic [WAIT_INPUTS-1:0]                         wait_input_valid;
+    logic [WAIT_INPUTS-1:0]                         wait_ready_valid;
+    logic [STRUCT_PHYREGS-1:0]                      wait_map_list         [0:WAIT_INPUTS-1];
+    logic [WAIT_INPUTS-1:0]                         wait_map_phyreg       [0:STRUCT_PHYREGS-1];
+    integer                                        wait_prefix_count     [0:WAIT_INPUTS-1];
+    logic [WAIT_INPUTS-1:0]                         wait_suffix_valid;
 
-    // Gen2's mapping instances hold consecutive slices of the IST bitmap for
-    // every physical register. Slicing keeps all waiters, including more than
-    // STRUCT_PRM_ENTRY_BUFFER waiters on the same physical register.
-    for (genvar physical = 0; physical < STRUCT_PHYREGS; physical++) begin : GEN_MAP_ADDRESS
-        assign map_addr[physical*_BITWIDTH_STRUCT_PHYREGS +: _BITWIDTH_STRUCT_PHYREGS] =
-            _BITWIDTH_STRUCT_PHYREGS'(physical);
-        for (genvar state_entry = 0; state_entry < STRUCT_INST_STATE_ENTRIES; state_entry++) begin : GEN_MAP_BIT
-            assign wait_map[state_entry][physical] =
-                map_read[state_entry/MAP_CHUNK][physical*MAP_CHUNK + state_entry%MAP_CHUNK];
+    // Capture the complete IST input (Valid + Data) before mapping it.
+    // If any unfinished PHYREG would overflow, retain the entire head bundle.
+    // New physical-register offers stop; WBC and already-renamed IST inputs continue.
+    logic [_BITWIDTH_INPUT_BUFFER_ADDR-1:0]        input_read_ptr, input_read_ptr_next;
+    logic [_BITWIDTH_INPUT_BUFFER_ADDR-1:0]        input_write_ptr, input_write_ptr_next;
+    logic [_BITWIDTH_INPUT_BUFFER_COUNT-1:0]       input_count, input_count_next;
+    wire  [_BITWIDTH_INPUT_BUNDLE-1:0]             input_buffer_read_data;
+    wire  [_BITWIDTH_INPUT_BUNDLE-1:0]             input_buffer_write_data;
+    logic                                         input_push, input_fire, input_stall;
+    logic                                         input_map_fit;
+
+    // Ready remains set until allocation of a new lifetime, so a one-cycle WBC
+    // pulse is not lost while the output FIFO is full or an input bundle is held.
+    logic [STRUCT_PHYREGS-1:0]                      phyreg_ready, phyreg_ready_next;
+    logic [STRUCT_PHYREGS-1:0]                      mapping_active, mapping_active_next;
+    logic [STRUCT_PHYREGS-1:0]                      retired_pending, retired_pending_next;
+
+    logic [_BITWIDTH_STRUCT_PHYREGS-1:0]            drain_start, drain_start_next;
+    logic [_BITWIDTH_STRUCT_PHYREGS-1:0]            drain_phyreg;
+    logic                                           drain_valid, drain_fire;
+
+    // Counter port 0 drains a completed row; ports 1..WAIT_INPUTS append requests.
+    logic [(COUNTER_CHANNELS*_BITWIDTH_STRUCT_PHYREGS)-1:0] counter_addr;
+    logic [(COUNTER_CHANNELS*_BITWIDTH_STRUCT_PRM_ENTRY_BUFFER)-1:0] counter_read_data;
+    logic [(COUNTER_CHANNELS*_BITWIDTH_STRUCT_PRM_ENTRY_BUFFER)-1:0] counter_write_data;
+    logic [COUNTER_CHANNELS-1:0]                    counter_write_valid;
+    logic [(WAIT_INPUTS*_BITWIDTH_STRUCT_PHYREGS)-1:0] mapping_write_addr;
+    logic [(WAIT_INPUTS*_BITWIDTH_STRUCT_INST_STATE_ENTRIES)-1:0] mapping_write_data;
+    logic [WAIT_INPUTS-1:0]                         mapping_write_valid   [0:STRUCT_PRM_ENTRY_BUFFER-1];
+    wire  [_BITWIDTH_STRUCT_INST_STATE_ENTRIES-1:0] mapping_read_data     [0:STRUCT_PRM_ENTRY_BUFFER-1];
+
+    // Fixed input lanes: completed row first, then ready requests from the head.
+    // The common FIFO owns compaction, storage, occupancy and output delivery.
+    logic [OUTPUT_PUSH_CHANNELS-1:0]                output_push_valid;
+    wire  [OUTPUT_PUSH_CHANNELS-1:0]                output_push_ready;
+    logic [(OUTPUT_PUSH_CHANNELS*_BITWIDTH_READY_PRM)-1:0] output_push_data;
+    wire  [STRUCT_PRM_ENTRY_UPDATE-1:0]             output_valid;
+    wire  [(STRUCT_PRM_ENTRY_UPDATE*_BITWIDTH_READY_PRM)-1:0] output_data;
+
+    wire  [STRUCT_DECODE_NEW_INST-1:0]              allocate_valid;
+    wire  [(STRUCT_DECODE_NEW_INST*_BITWIDTH_STRUCT_PHYREGS)-1:0] allocate_data;
+    wire  [STRUCT_DECODE_NEW_INST-1:0]              allocate_fire;
+    logic [STRUCT_UNALLOCATE_PHYREG-1:0]            unallocate_valid;
+    wire  [STRUCT_UNALLOCATE_PHYREG-1:0]            unallocate_ready;
+    logic [(STRUCT_UNALLOCATE_PHYREG*_BITWIDTH_STRUCT_PHYREGS)-1:0] unallocate_data;
+    logic [RETURN_COUNT_WIDTH-1:0]                 return_tree_count [0:2*RETURN_LEAVES-1];
+    logic [_BITWIDTH_STRUCT_PHYREGS-1:0]           return_tree_data  [0:2*RETURN_LEAVES-1][0:STRUCT_UNALLOCATE_PHYREG-1];
+    logic [RETURN_COUNT_WIDTH:0]                   return_merge_count;
+
+    assign o_nel_phyreg_valid         = allocate_valid & {STRUCT_DECODE_NEW_INST{~input_stall}};
+    assign o_nel_phyreg_data          = allocate_data;
+    assign allocate_fire             = i_nel_phyreg_get & o_nel_phyreg_valid;
+    assign o_ist_ready_phyreg_valid   = output_valid;
+    assign o_ist_ready_phyreg_data    = output_data;
+    assign input_buffer_write_data   = {i_ist_wait_phyreg_valid, i_ist_wait_phyreg_data};
+
+    integer idx_input, idx_previous, idx_map0, idx_map1;
+    integer idx_drain, drain_scan;
+    integer idx_address;
+    integer idx_push;
+    integer idx_wait, idx_slot, idx_done, idx_allocate, idx_retire;
+    integer idx_return_node, idx_return_group, idx_return_slot, idx_return_lane, return_phyreg;
+    integer counter_base, append_position, updated_count;
+    integer drain_count;
+    logic [_BITWIDTH_STRUCT_PHYREGS-1:0] target_phyreg;
+
+    always_comb begin
+        // Split Buffered Input Head and Gather Wait Requests
+        wait_input_valid = input_buffer_read_data[(WAIT_INPUTS*_BITWIDTH_READY_PRM) +: WAIT_INPUTS]
+                           & {WAIT_INPUTS{reset_n && (input_count != 0)}};
+        wait_ready_valid = 0;
+        wait_suffix_valid = 0;
+        for (idx_input = 0; idx_input < WAIT_INPUTS; idx_input = idx_input+1) begin
+            wait_input_list[idx_input] =
+                input_buffer_read_data[(_BITWIDTH_READY_PRM*idx_input) +: _BITWIDTH_READY_PRM];
+            wait_input_phyreg[idx_input] = wait_input_list[idx_input][0 +: _BITWIDTH_STRUCT_PHYREGS];
+            wait_input_istentry[idx_input] =
+                wait_input_list[idx_input][_BITWIDTH_STRUCT_PHYREGS +: _BITWIDTH_STRUCT_INST_STATE_ENTRIES];
+
+            // One notification updates every matching operand in the IST entry.
+            for (idx_previous = 0; idx_previous < idx_input; idx_previous = idx_previous+1) begin
+                if (wait_input_valid[idx_previous] && (wait_input_list[idx_input] == wait_input_list[idx_previous]))
+                    wait_input_valid[idx_input] = 1'b0;
+            end
+            wait_map_list[idx_input] = 0;
+            wait_ready_valid[idx_input] = wait_input_valid[idx_input] && phyreg_ready[wait_input_phyreg[idx_input]];
+            if (wait_input_valid[idx_input] && !wait_ready_valid[idx_input])
+                wait_map_list[idx_input][wait_input_phyreg[idx_input]] = 1'b1;
+
+        end
+
+        // Transpose Input -> PHYREG into PHYREG -> Inputs.
+        for (idx_map0 = 0; idx_map0 < STRUCT_PHYREGS; idx_map0 = idx_map0+1) begin
+            for (idx_map1 = 0; idx_map1 < WAIT_INPUTS; idx_map1 = idx_map1+1)
+                wait_map_phyreg[idx_map0][idx_map1] = wait_map_list[idx_map1][idx_map0];
+        end
+
+        // Prefix gives the append slot; only the last request writes the counter.
+        for (idx_input = 0; idx_input < WAIT_INPUTS; idx_input = idx_input+1) begin
+            wait_prefix_count[idx_input] = 0;
+            for (idx_previous = 0; idx_previous < WAIT_INPUTS; idx_previous = idx_previous+1) begin
+                if (wait_input_valid[idx_input] && wait_map_phyreg[wait_input_phyreg[idx_input]][idx_previous]) begin
+                    if (idx_previous < idx_input)
+                        wait_prefix_count[idx_input] = wait_prefix_count[idx_input]+1;
+                    if (idx_previous > idx_input)
+                        wait_suffix_valid[idx_input] = 1'b1;
+                end
+            end
+        end
+
+        // Select Completed Physical Register
+        drain_valid = 1'b0;
+        drain_phyreg = 0;
+        drain_scan = 0;
+        // One completed physical register per cycle, with round-robin arbitration.
+        for (idx_drain = 0; idx_drain < STRUCT_PHYREGS; idx_drain = idx_drain+1) begin
+            drain_scan = int'(drain_start)+idx_drain;
+            if (drain_scan >= STRUCT_PHYREGS) drain_scan = drain_scan-STRUCT_PHYREGS;
+            if (!drain_valid && phyreg_ready[drain_scan] && mapping_active[drain_scan]) begin
+                drain_valid = reset_n;
+                drain_phyreg = _BITWIDTH_STRUCT_PHYREGS'(drain_scan);
+            end
+        end
+
+        // Mapping Counter / Map Addresses
+        counter_addr = 0;
+        counter_addr[0 +: _BITWIDTH_STRUCT_PHYREGS] = drain_phyreg;
+        mapping_write_addr = 0;
+        mapping_write_data = 0;
+        for (idx_address = 0; idx_address < WAIT_INPUTS; idx_address = idx_address+1) begin
+            counter_addr[(_BITWIDTH_STRUCT_PHYREGS*(idx_address+1)) +: _BITWIDTH_STRUCT_PHYREGS] = wait_input_phyreg[idx_address];
+            mapping_write_addr[(_BITWIDTH_STRUCT_PHYREGS*idx_address) +: _BITWIDTH_STRUCT_PHYREGS] = wait_input_phyreg[idx_address];
+            mapping_write_data[(_BITWIDTH_STRUCT_INST_STATE_ENTRIES*idx_address) +: _BITWIDTH_STRUCT_INST_STATE_ENTRIES] = wait_input_istentry[idx_address];
+        end
+
+        // Check the Whole Input Bundle Before Updating Any Mapping
+        input_map_fit = 1'b1;
+        for (idx_input = 0; idx_input < WAIT_INPUTS; idx_input = idx_input+1) begin
+            if (wait_input_valid[idx_input] && !wait_ready_valid[idx_input]) begin
+                if ((int'(counter_read_data[(_BITWIDTH_STRUCT_PRM_ENTRY_BUFFER*(idx_input+1)) +: _BITWIDTH_STRUCT_PRM_ENTRY_BUFFER])
+                     +wait_prefix_count[idx_input]+1) > STRUCT_PRM_ENTRY_BUFFER)
+                    input_map_fit = 1'b0;
+            end
+        end
+
+        // Completed Map and Ready Input Requests -> Output FIFO
+        // Ready reserves the entire input width, so a row is accepted atomically.
+        // Buffered requests that completed while waiting bypass the map. Sparse
+        // lanes are left in place; compaction happens inside the common FIFO.
+        output_push_valid = 0;
+        output_push_data = 0;
+        drain_count = 0;
+        if (drain_valid) drain_count = int'(counter_read_data[0 +: _BITWIDTH_STRUCT_PRM_ENTRY_BUFFER]);
+        drain_fire = drain_valid && (drain_count != 0) && (&output_push_ready);
+        input_fire = reset_n && (input_count != 0) && input_map_fit &&
+                     (!(|wait_ready_valid) || (&output_push_ready));
+
+        if (drain_fire) begin
+            for (idx_push = 0; idx_push < STRUCT_PRM_ENTRY_BUFFER; idx_push = idx_push+1) begin
+                if (idx_push < drain_count) begin
+                    output_push_valid[idx_push] = 1'b1;
+                    output_push_data[(_BITWIDTH_READY_PRM*idx_push) +: _BITWIDTH_READY_PRM] =
+                        {mapping_read_data[idx_push], drain_phyreg};
+                end
+            end
+        end
+        if (input_fire) begin
+            for (idx_push = 0; idx_push < WAIT_INPUTS; idx_push = idx_push+1) begin
+                if (wait_ready_valid[idx_push]) begin
+                    output_push_valid[STRUCT_PRM_ENTRY_BUFFER+idx_push] = 1'b1;
+                    output_push_data[(_BITWIDTH_READY_PRM*(STRUCT_PRM_ENTRY_BUFFER+idx_push)) +: _BITWIDTH_READY_PRM] =
+                        wait_input_list[idx_push];
+                end
+            end
+        end
+
+        // Input Buffer and PHYREG Allocation Backpressure
+        // Do not mask IST input with input_stall: an already-renamed Stage 2
+        // bundle may arrive once after new allocation stops. Reserve its slot.
+        // NEL must stop EVERY Stage 1 -> Stage 2 transfer when offers are absent,
+        // including instructions with no destination register, and deliver each
+        // Stage 2 bundle to IST only once. No extra registered IST -> PRM stage.
+        input_stall = !reset_n || ((input_count != 0) && !input_fire) ||
+                      ((int'(input_count)-(input_fire? 1 : 0)) >= (INPUT_BUFFER_ENTRIES-1));
+        input_push = reset_n && (|i_ist_wait_phyreg_valid) &&
+                     ((input_count < INPUT_BUFFER_ENTRIES) || input_fire);
+        input_read_ptr_next = input_read_ptr;
+        input_write_ptr_next = input_write_ptr;
+        input_count_next = _BITWIDTH_INPUT_BUFFER_COUNT'(int'(input_count)+(input_push? 1 : 0)-(input_fire? 1 : 0));
+        if (input_fire) input_read_ptr_next = _BITWIDTH_INPUT_BUFFER_ADDR'((int'(input_read_ptr)+1)%INPUT_BUFFER_ENTRIES);
+        if (input_push) input_write_ptr_next = _BITWIDTH_INPUT_BUFFER_ADDR'((int'(input_write_ptr)+1)%INPUT_BUFFER_ENTRIES);
+
+        // Mapping Updates and Next State
+        phyreg_ready_next = phyreg_ready;
+        mapping_active_next = mapping_active;
+        retired_pending_next = retired_pending;
+        drain_start_next = drain_start;
+        counter_write_valid = 0;
+        counter_write_data = 0;
+        unallocate_valid = 0;
+        unallocate_data = 0;
+        target_phyreg = 0;
+        counter_base = 0;
+        append_position = 0;
+        updated_count = 0;
+        for (idx_slot = 0; idx_slot < STRUCT_PRM_ENTRY_BUFFER; idx_slot = idx_slot+1)
+            mapping_write_valid[idx_slot] = 0;
+
+        // Release a map only after its entire batch has secured output FIFO space.
+        if (drain_fire) begin
+            counter_write_valid[0] = 1'b1;
+            mapping_active_next[drain_phyreg] = 1'b0;
+            if (drain_phyreg == STRUCT_PHYREGS-1) drain_start_next = 0;
+            else drain_start_next = drain_phyreg+1'b1;
+        end
+
+        // Commit All Unfinished Requests in the Input Head Together
+        // Ready requests go directly to the output FIFO above. On input overflow
+        // no request in this bundle changes the map or counter; the head waits.
+        for (idx_wait = 0; idx_wait < WAIT_INPUTS; idx_wait = idx_wait+1) begin
+            if (input_fire && wait_input_valid[idx_wait] && !wait_ready_valid[idx_wait]) begin
+                target_phyreg = wait_input_phyreg[idx_wait];
+                counter_base = int'(counter_read_data[(_BITWIDTH_STRUCT_PRM_ENTRY_BUFFER*(idx_wait+1)) +: _BITWIDTH_STRUCT_PRM_ENTRY_BUFFER]);
+                append_position = counter_base+wait_prefix_count[idx_wait];
+                mapping_write_valid[append_position][idx_wait] = 1'b1;
+                mapping_active_next[target_phyreg] = 1'b1;
+                if (!wait_suffix_valid[idx_wait]) begin
+                    updated_count = append_position+1;
+                    counter_write_valid[idx_wait+1] = 1'b1;
+                    counter_write_data[(_BITWIDTH_STRUCT_PRM_ENTRY_BUFFER*(idx_wait+1)) +: _BITWIDTH_STRUCT_PRM_ENTRY_BUFFER] =
+                        _BITWIDTH_STRUCT_PRM_ENTRY_BUFFER'(updated_count);
+                end
+            end
+        end
+
+
+        for (idx_allocate = 0; idx_allocate < STRUCT_DECODE_NEW_INST; idx_allocate = idx_allocate+1) begin
+            if (allocate_fire[idx_allocate]) begin
+                target_phyreg = allocate_data[(_BITWIDTH_STRUCT_PHYREGS*idx_allocate) +: _BITWIDTH_STRUCT_PHYREGS];
+                phyreg_ready_next[target_phyreg] = 1'b0;
+            end
+        end
+        for (idx_done = 0; idx_done < STRUCT_EX_OUT_RESULT_SUM; idx_done = idx_done+1) begin
+            if (i_wbc_done_phyreg_valid[idx_done]) begin
+                target_phyreg = i_wbc_done_phyreg_data[(_BITWIDTH_STRUCT_PHYREGS*idx_done) +: _BITWIDTH_STRUCT_PHYREGS];
+                phyreg_ready_next[target_phyreg] = 1'b1;
+            end
+        end
+        phyreg_ready_next[0] = 1'b1;
+
+        // FCL returns only after all readers in this and older windows complete.
+        // No per-PHYREG notification counter is needed under that contract.
+        // Its Valid-only return pulse is still retained until the allocator accepts.
+        for (idx_retire = 0; idx_retire < STRUCT_UNALLOCATE_PHYREG; idx_retire = idx_retire+1) begin
+            if (i_fcl_unallocate_phyreg_valid[idx_retire]) begin
+                target_phyreg = i_fcl_unallocate_phyreg_data[(_BITWIDTH_STRUCT_PHYREGS*idx_retire) +: _BITWIDTH_STRUCT_PHYREGS];
+                if (target_phyreg != 0) retired_pending_next[target_phyreg] = 1'b1;
+            end
+        end
+        // Parallel local selection, then balanced merges. No count passes
+        // serially through all PHYREGs. Lower PHYREG numbers still go first.
+        return_phyreg = 0;
+        return_merge_count = 0;
+        for (idx_return_node = 0; idx_return_node < 2*RETURN_LEAVES; idx_return_node = idx_return_node+1) begin
+            return_tree_count[idx_return_node] = 0;
+            for (idx_return_lane = 0; idx_return_lane < STRUCT_UNALLOCATE_PHYREG; idx_return_lane = idx_return_lane+1)
+                return_tree_data[idx_return_node][idx_return_lane] = 0;
+        end
+        for (idx_return_group = 0; idx_return_group < RETURN_GROUPS; idx_return_group = idx_return_group+1) begin
+            for (idx_return_slot = 0; idx_return_slot < RETURN_GROUP_SIZE; idx_return_slot = idx_return_slot+1) begin
+                return_phyreg = idx_return_group*RETURN_GROUP_SIZE+idx_return_slot;
+                if ((return_phyreg > 0) && (return_phyreg < STRUCT_PHYREGS)) begin
+                    if (retired_pending[return_phyreg] &&
+                        (return_tree_count[RETURN_LEAVES+idx_return_group] < STRUCT_UNALLOCATE_PHYREG)) begin
+                        return_tree_data[RETURN_LEAVES+idx_return_group][return_tree_count[RETURN_LEAVES+idx_return_group]] =
+                            _BITWIDTH_STRUCT_PHYREGS'(return_phyreg);
+                        return_tree_count[RETURN_LEAVES+idx_return_group] = return_tree_count[RETURN_LEAVES+idx_return_group]+1'b1;
+                    end
+                end
+            end
+        end
+        for (idx_return_node = RETURN_LEAVES-1; idx_return_node > 0; idx_return_node = idx_return_node-1) begin
+            return_merge_count = {1'b0, return_tree_count[2*idx_return_node]} +
+                                 {1'b0, return_tree_count[2*idx_return_node+1]};
+            if (return_merge_count > STRUCT_UNALLOCATE_PHYREG)
+                return_tree_count[idx_return_node] = RETURN_COUNT_WIDTH'(STRUCT_UNALLOCATE_PHYREG);
+            else return_tree_count[idx_return_node] = RETURN_COUNT_WIDTH'(return_merge_count);
+            for (idx_return_lane = 0; idx_return_lane < STRUCT_UNALLOCATE_PHYREG; idx_return_lane = idx_return_lane+1) begin
+                if (idx_return_lane < return_tree_count[idx_return_node]) begin
+                    if (idx_return_lane < return_tree_count[2*idx_return_node])
+                        return_tree_data[idx_return_node][idx_return_lane] = return_tree_data[2*idx_return_node][idx_return_lane];
+                    else return_tree_data[idx_return_node][idx_return_lane] =
+                        return_tree_data[2*idx_return_node+1][RETURN_COUNT_WIDTH'(idx_return_lane)-return_tree_count[2*idx_return_node]];
+                end
+            end
+        end
+        for (idx_return_lane = 0; idx_return_lane < STRUCT_UNALLOCATE_PHYREG; idx_return_lane = idx_return_lane+1) begin
+            if (idx_return_lane < return_tree_count[1]) begin
+                unallocate_valid[idx_return_lane] = reset_n;
+                unallocate_data[(_BITWIDTH_STRUCT_PHYREGS*idx_return_lane) +: _BITWIDTH_STRUCT_PHYREGS] = return_tree_data[1][idx_return_lane];
+                if (reset_n && unallocate_ready[idx_return_lane])
+                    retired_pending_next[return_tree_data[1][idx_return_lane]] = 1'b0;
+            end
+        end
+    end
+
+    always_ff @(posedge clk or negedge reset_n) begin
+        if (~reset_n) begin
+            input_read_ptr <= 0;
+            input_write_ptr <= 0;
+            input_count <= 0;
+            phyreg_ready <= {{(STRUCT_PHYREGS-1){1'b0}}, 1'b1};
+            mapping_active <= 0;
+            retired_pending <= 0;
+            drain_start <= 0;
+        end
+        else begin
+`ifndef SYNTHESIS
+            // Valid-only input has no retry handshake. Reaching this condition
+            // means the upstream stop / one-time admission contract was violated.
+            if ((|i_ist_wait_phyreg_valid) && !input_push)
+                $error("PRM input buffer overflow: NEL must stop on missing PHYREG offers and IST must send each admitted bundle once.");
+`endif
+            input_read_ptr <= input_read_ptr_next;
+            input_write_ptr <= input_write_ptr_next;
+            input_count <= input_count_next;
+            phyreg_ready <= phyreg_ready_next;
+            mapping_active <= mapping_active_next;
+            retired_pending <= retired_pending_next;
+            drain_start <= drain_start_next;
         end
     end
 
     regfile #(
-        .DATA_WIDTH(MAP_COUNT_WIDTH), .ENTRIES(STRUCT_PHYREGS),
-        .READ_CHANNEL(STRUCT_PHYREGS), .WRITE_CHANNEL(STRUCT_PHYREGS)
-    ) U_PRM_MAPPING_COUNTER (
-        .clk(clk), .reset_n(reset_n), .i_flush(1'b0),
-        .i_read_addr(map_addr), .o_read_data(map_counter_read),
-        .i_write_addr(map_addr), .i_write_en({STRUCT_PHYREGS{1'b1}}),
-        .i_write_data(map_counter_write)
+        .DATA_WIDTH    (_BITWIDTH_INPUT_BUNDLE),
+        .ENTRIES       (INPUT_BUFFER_ENTRIES),
+        .READ_CHANNEL  (1),
+        .WRITE_CHANNEL (1),
+        .INITIAL_VALUE (0)
+    ) U_PRM_INPUT_BUFFER (
+        .clk           (clk),
+        .reset_n       (reset_n),
+        .i_flush       (1'b0),
+        .i_read_addr   (input_read_ptr),
+        .o_read_data   (input_buffer_read_data),
+        .i_write_addr  (input_write_ptr),
+        .i_write_en    (input_push),
+        .i_write_data  (input_buffer_write_data)
     );
 
-    for (genvar bank = 0; bank < MAP_BANKS; bank++) begin : GEN_PRM_MAP
-        for (genvar physical = 0; physical < STRUCT_PHYREGS; physical++) begin : GEN_WRITE_SLICE
-            for (genvar bit_idx = 0; bit_idx < MAP_CHUNK; bit_idx++) begin : GEN_WRITE_BIT
-                if (bank*MAP_CHUNK+bit_idx < STRUCT_INST_STATE_ENTRIES) begin
-                    assign map_write[bank][physical*MAP_CHUNK+bit_idx] =
-                        wait_map_next[bank*MAP_CHUNK+bit_idx][physical];
-                end
-                else begin
-                    assign map_write[bank][physical*MAP_CHUNK+bit_idx] = 1'b0;
-                end
-            end
-        end
-        regfile #(
-            .DATA_WIDTH(MAP_CHUNK), .ENTRIES(STRUCT_PHYREGS),
-            .READ_CHANNEL(STRUCT_PHYREGS), .WRITE_CHANNEL(STRUCT_PHYREGS)
-        ) U_PRM_IST_MAP (
-            .clk(clk), .reset_n(reset_n), .i_flush(1'b0),
-            .i_read_addr(map_addr), .o_read_data(map_read[bank]),
-            .i_write_addr(map_addr), .i_write_en({STRUCT_PHYREGS{1'b1}}),
-            .i_write_data(map_write[bank])
-        );
-    end
+    allocator #(
+        .ENTRIES            (STRUCT_PHYREGS-1),
+        .START_VALUE        (1),
+        .ALLOCATE_CHANNEL   (STRUCT_DECODE_NEW_INST),
+        .UNALLOCATE_CHANNEL (STRUCT_UNALLOCATE_PHYREG),
+        .USE_BRAM           (1'b1)
+    ) U_PRM_PHYREG_ALLOCATOR (
+        .clk                (clk),
+        .reset_n            (reset_n),
+        .i_flush            (1'b0),
+        .i_unallocate       (unallocate_valid),
+        .o_unallocate_ready (unallocate_ready),
+        .i_unallocate_data  (unallocate_data),
+        .i_allocate         (allocate_fire),
+        .o_allocate_valid   (allocate_valid),
+        .o_allocate_data    (allocate_data)
+    );
 
-    // Each output lane keeps the Gen2 FIFO instance. Completion events enter
-    // at the same edge that used to set wait_pending, so IST sees them at the
-    // same following cycle. The bitmap holds any excess until a FIFO lane is free.
-    for (genvar output_lane = 0; output_lane < STRUCT_PRM_ENTRY_UPDATE; output_lane++) begin : GEN_PRM_OUTPUT
-        fifo_multichan #(
-            .DATA_WIDTH(_BITWIDTH_READY_PRM), .READ_CHANNEL(1),
-            .WRITE_CHANNEL(1), .MIN_FIFO_ENTRY(2)
-        ) U_PRM_OUTPUT_FIFO (
-            .clk(clk), .reset_n(reset_n), .i_flush(1'b0),
-            .i_push(enqueue_valid[output_lane]),
-            .o_push_ready(enqueue_ready[output_lane]),
-            .i_push_data(enqueue_data[output_lane*_BITWIDTH_READY_PRM +: _BITWIDTH_READY_PRM]),
-            .i_pop(o_ist_ready_phyreg_valid[output_lane]),
-            .o_pop_valid(o_ist_ready_phyreg_valid[output_lane]),
-            .o_pop_data(o_ist_ready_phyreg_data[output_lane*_BITWIDTH_READY_PRM +: _BITWIDTH_READY_PRM])
-        );
-    end
+    regfile #(
+        .DATA_WIDTH    (_BITWIDTH_STRUCT_PRM_ENTRY_BUFFER),
+        .ENTRIES       (STRUCT_PHYREGS),
+        .READ_CHANNEL  (COUNTER_CHANNELS),
+        .WRITE_CHANNEL (COUNTER_CHANNELS),
+        .INITIAL_VALUE (0)
+    ) U_PRM_MAPPING_COUNTER (
+        .clk           (clk),
+        .reset_n       (reset_n),
+        .i_flush       (1'b0),
+        .i_read_addr   (counter_addr),
+        .o_read_data   (counter_read_data),
+        .i_write_addr  (counter_addr),
+        .i_write_en    (counter_write_valid),
+        .i_write_data  (counter_write_data)
+    );
 
-    always_comb begin
-        for (entry = 0; entry < STRUCT_INST_STATE_ENTRIES; entry++) begin
-            wait_pending_next[entry] = wait_pending[entry];
-            wait_map_next[entry] = wait_map[entry];
-        end
-        new_wait_for_preg = '0;
-        enqueue_valid = '0;
-        enqueue_data = '0;
-        enqueue_lane = 0;
-
-        // Record all outstanding (physical register, IST entry) dependencies.
-        for (lane = 0; lane < STRUCT_DECODE_NEW_INST*IS_INST_OPERANDS; lane++) begin
-            wait_preg = int'(i_ist_wait_phyreg_data[lane*_BITWIDTH_READY_PRM +: _BITWIDTH_STRUCT_PHYREGS]);
-            wait_entry = int'(i_ist_wait_phyreg_data[lane*_BITWIDTH_READY_PRM + _BITWIDTH_STRUCT_PHYREGS +: _BITWIDTH_STRUCT_INST_STATE_ENTRIES]);
-            if (i_ist_wait_phyreg_valid[lane] && wait_preg < STRUCT_PHYREGS && wait_entry < STRUCT_INST_STATE_ENTRIES) begin
-                wait_map_next[wait_entry][wait_preg] = 1'b1;
-                new_wait_for_preg[wait_preg] = 1'b1;
-            end
+    genvar mapping_idx;
+    generate
+        for (mapping_idx = 0; mapping_idx < STRUCT_PRM_ENTRY_BUFFER; mapping_idx = mapping_idx+1) begin : GEN_PRM_IST_MAP
+            regfile #(
+                .DATA_WIDTH    (_BITWIDTH_STRUCT_INST_STATE_ENTRIES),
+                .ENTRIES       (STRUCT_PHYREGS),
+                .READ_CHANNEL  (1),
+                .WRITE_CHANNEL (WAIT_INPUTS),
+                .INITIAL_VALUE (0)
+            ) U_PRM_IST_MAP (
+                .clk           (clk),
+                .reset_n       (reset_n),
+                .i_flush       (1'b0),
+                .i_read_addr   (drain_phyreg),
+                .o_read_data   (mapping_read_data[mapping_idx]),
+                .i_write_addr  (mapping_write_addr),
+                .i_write_en    (mapping_write_valid[mapping_idx]),
+                .i_write_data  (mapping_write_data)
+            );
         end
 
-        // Completion events turn waiters into pending update messages.
-        for (lane = 0; lane < STRUCT_EX_OUT_RESULT_SUM; lane++) begin
-            preg = int'(i_wbc_done_phyreg_data[lane*_BITWIDTH_STRUCT_PHYREGS +: _BITWIDTH_STRUCT_PHYREGS]);
-            if (i_wbc_done_phyreg_valid[lane] && preg < STRUCT_PHYREGS &&
-                (map_counter_read[preg*MAP_COUNT_WIDTH +: MAP_COUNT_WIDTH] != 0 ||
-                 new_wait_for_preg[preg])) begin
-                for (entry = 0; entry < STRUCT_INST_STATE_ENTRIES; entry++) begin
-                    if (wait_map_next[entry][preg]) wait_pending_next[entry][preg] = 1'b1;
-                end
-            end
-        end
+    endgenerate
 
-        for (entry_out = 0; entry_out < STRUCT_INST_STATE_ENTRIES; entry_out++) begin
-            for (preg_out = 1; preg_out < STRUCT_PHYREGS; preg_out++) begin
-                if (wait_pending_next[entry_out][preg_out] &&
-                    enqueue_lane < STRUCT_PRM_ENTRY_UPDATE && enqueue_ready[enqueue_lane]) begin
-                    enqueue_valid[enqueue_lane] = 1'b1;
-                    enqueue_data[enqueue_lane*_BITWIDTH_READY_PRM +: _BITWIDTH_READY_PRM] =
-                        _BITWIDTH_READY_PRM'((entry_out << _BITWIDTH_STRUCT_PHYREGS) | preg_out);
-                    wait_pending_next[entry_out][preg_out] = 1'b0;
-                    wait_map_next[entry_out][preg_out] = 1'b0;
-                    enqueue_lane++;
-                end
-            end
-        end
-        map_counter_write = '0;
-        for (preg = 0; preg < STRUCT_PHYREGS; preg++) begin
-            for (entry = 0; entry < STRUCT_INST_STATE_ENTRIES; entry++) begin
-                if (wait_map_next[entry][preg])
-                    map_counter_write[preg*MAP_COUNT_WIDTH +: MAP_COUNT_WIDTH] =
-                        map_counter_write[preg*MAP_COUNT_WIDTH +: MAP_COUNT_WIDTH] + 1'b1;
-            end
-        end
-    end
-
-    for (genvar idx = 0; idx < STRUCT_INST_STATE_ENTRIES; idx++) begin : GEN_WAIT_ENTRY
-        always_ff @(posedge clk or negedge reset_n) begin
-            if (!reset_n) begin
-                wait_pending[idx] <= '0;
-            end
-            else begin
-                wait_pending[idx] <= wait_pending_next[idx];
-            end
-        end
-    end
-
+    fifo_multichan #(
+        .DATA_WIDTH    (_BITWIDTH_READY_PRM),
+        .READ_CHANNEL  (STRUCT_PRM_ENTRY_UPDATE),
+        .WRITE_CHANNEL (OUTPUT_PUSH_CHANNELS),
+        .MIN_FIFO_ENTRY(OUTPUT_FIFO_ENTRIES),
+        .USE_BRAM      (1'b1),
+        .OPTIMIZED_INPUT_GATHER(1'b1)
+    ) U_PRM_OUTPUT_FIFO (
+        .clk           (clk),
+        .reset_n       (reset_n),
+        .i_flush       (1'b0),
+        .i_push        (output_push_valid),
+        .o_push_ready  (output_push_ready),
+        .i_push_data   (output_push_data),
+        // IST merges same-entry notifications; every valid lane is consumed.
+        .i_pop         (output_valid),
+        .o_pop_valid   (output_valid),
+        .o_pop_data    (output_data)
+    );
 endmodule
