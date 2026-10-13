@@ -212,7 +212,8 @@ export const DecoderCustomizer: React.FC<DecoderCustomizerProps> = ({
           <h2 className="panel-title">{t('ISA settings')}</h2>
         </div>
 
-        <div className="sidebar-content" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div className="sidebar-content">
+          <div className="decoder-isa-grid">
           {/* ISA Name Input */}
           <div className="form-group">
             <label className="form-label">
@@ -295,6 +296,7 @@ export const DecoderCustomizer: React.FC<DecoderCustomizerProps> = ({
             />
           </div>
 
+          </div>
           <div style={{ height: '1px', backgroundColor: '#222', margin: '4px 0' }} />
 
           {/* FORMATS SECTION */}

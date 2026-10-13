@@ -128,3 +128,43 @@
 .studio-parameter-field code { font-size: 11px; overflow-wrap: anywhere; color: var(--s-muted); }
 .studio-parameter-field input { width: 100%; box-sizing: border-box; border: 1px solid var(--s-line); background: var(--s-inner); color: var(--s-text); padding: 8px; }
 .studio-parameter-field small { color: var(--s-muted); line-height: 1.6; }
+
+/* Compact decoder controls; field editing scrolls with the page, not a nested box. */
+.studio-decoder-page .decoder-body { align-items: start; grid-template-rows: auto; }
+.studio-decoder-page .decoder-body > .panel { height: auto; min-height: 0; }
+.studio-decoder-page .decoder-sidebar { overflow: visible; }
+.studio-decoder-page .panel-header { padding: 10px 12px; }
+.studio-decoder-page .sidebar-content { display: flex; flex-direction: column; padding: 10px; gap: 8px; overflow: visible; }
+.studio-decoder-page .decoder-isa-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.studio-decoder-page .decoder-isa-grid > .form-group:first-child { grid-column: 1 / -1; }
+.studio-decoder-page .form-group { min-width: 0; margin: 0; gap: 4px; }
+.studio-decoder-page .form-label { flex-wrap: wrap; gap: 2px 6px; }
+.studio-decoder-page .decoder-sidebar input:not([type=checkbox]),
+.studio-decoder-page .decoder-sidebar select {
+  width: 100%; min-width: 0; max-width: 100%; min-height: 28px;
+  padding: 3px 5px !important; font-size: 12px !important;
+}
+.studio-decoder-page .decoder-format-card { min-width: 0; padding: 8px; gap: 8px; }
+.studio-decoder-page .decoder-format-tab { padding: 5px 8px; font-size: 12px; }
+.studio-decoder-page .decoder-section-heading { gap: 6px; }
+.studio-decoder-page .btn { min-height: 28px; padding: 3px 7px !important; }
+.studio-decoder-page .decoder-help { font-size: 11px; line-height: 1.4; }
+.studio-decoder-page .decoder-field-list {
+  min-width: 0; max-height: none; overflow: visible; padding: 0; gap: 6px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+}
+.studio-decoder-page .decoder-field-card {
+  min-width: 0; padding: 8px; gap: 6px;
+  grid-template-columns: 96px minmax(0, 1fr);
+}
+.studio-decoder-page .decoder-field-top { grid-column: 1 / -1; min-width: 0; gap: 4px; }
+.studio-decoder-page .decoder-icon-remove { flex: none; padding: 3px 5px; font-size: 15px; }
+.studio-decoder-page .decoder-field-bits { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
+.studio-decoder-page .decoder-field-bits > div,
+.studio-decoder-page .decoder-field-role { min-width: 0; gap: 3px; }
+.studio-decoder-page .decoder-instruction-scroll { padding: 8px; }
+.studio-decoder-page .instruction-table td { padding: 5px 4px !important; }
+.studio-decoder-page .decoder-instructions input:not([type=checkbox]),
+.studio-decoder-page .decoder-instructions select { min-height: 28px; padding: 3px 5px !important; }
+.studio-sidebar .studio-small-number { width: 58px; min-width: 0; flex: none; padding: 4px 5px; }
+.studio-sidebar .studio-setting { gap: 8px; padding: 7px 0; }
