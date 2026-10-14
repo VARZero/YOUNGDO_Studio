@@ -116,6 +116,7 @@ export function Studio(props: StudioProps) {
         <label className="studio-project">{t('Project')} <input aria-label={t('Project name')} value={projectName} maxLength={64} onChange={e => onProjectNameChange(e.target.value)} /></label>
         <button className="studio-button" onClick={onExportJSON}>{t('Export JSON')}</button>
         <button className="studio-button" onClick={() => fileInputRef.current?.click()}>{t('Import JSON')}</button>
+        <a className="studio-button" href={`${import.meta.env.BASE_URL}auto_create/`}>{language === 'ko' ? '에이전트 자동 생성' : 'Agent auto-create'}</a>
         <button className="studio-button studio-button-primary" onClick={onDownloadProject} disabled={!!downloadError}>{t('Generate ZIP')} <span aria-hidden="true">→</span></button>
         <input ref={fileInputRef} type="file" accept=".json" hidden onChange={onImportJSON} />
       </div>

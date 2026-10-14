@@ -48,6 +48,12 @@ jobs:
       - name: Verify generated EULSUKDO wrappers
         run: npm run verify:rtl
         working-directory: gen/generator-app
+      - name: Install headless browser
+        run: npx playwright install --with-deps chromium --only-shell
+        working-directory: gen/generator-app
+      - name: Verify browser auto-create flow
+        run: npm run verify:auto
+        working-directory: gen/generator-app
       - name: Build generator
         run: npm run build
         working-directory: gen/generator-app

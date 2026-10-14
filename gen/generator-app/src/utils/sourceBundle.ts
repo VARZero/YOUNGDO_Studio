@@ -95,21 +95,25 @@ export function projectTopFileName(projectName: string, platform: SchedulerConfi
   return `${safeProjectName(projectName)}_${platform === 'oryukdo' ? 'oryukdo' : 'eulsukdo'}_top.sv`;
 }
 
-export function buildSourceBundle(topSource: string, decoderSource: string | null, isaName: string, projectName: string, settingsJson: string, platform: SchedulerConfig['platform'] = 'eulsukdo'): Uint8Array {
+export function buildSourceFiles(topSource: string, decoderSource: string | null, isaName: string, projectName: string, settingsJson: string, platform: SchedulerConfig['platform'] = 'eulsukdo'): Record<string, string> {
   const sources = rtlSourcesFor(platform);
   const settings = JSON.parse(settingsJson);
   if (settings.scheduler?.enableMemoryOrder || settings.scheduler?.platform === 'oryukdo')
     throw new Error('LSQ / ORYUKDO: coming later');
   const projectDir = safeProjectName(projectName);
   const selected = 'eulsukdo';
-  return createZip({
+  return {
     [`${projectDir}/youngdo_config.json`]: settingsJson,
     [`${projectDir}/RTL/${projectTopFileName(projectName, platform)}`]: topSource,
     ...(decoderSource === null ? {} : { [`${projectDir}/RTL/${isaName}_decoder.sv`]: decoderSource }),
     [`${projectDir}/RTL/${selected}_rtl/SOURCE_VERSION.json`]: JSON.stringify(sourceVersions[selected], null, 2) + '\n',
     ...Object.fromEntries(Object.entries(sources).map(([name, source]) => [`${projectDir}/RTL/${selected}_rtl/${name}`, source])),
     [`${projectDir}/RTL/ex_rtl/`]: '',
-  });
+  };
+}
+
+export function buildSourceBundle(topSource: string, decoderSource: string | null, isaName: string, projectName: string, settingsJson: string, platform: SchedulerConfig['platform'] = 'eulsukdo'): Uint8Array {
+  return createZip(buildSourceFiles(topSource, decoderSource, isaName, projectName, settingsJson, platform));
 }
 
 export function projectArchiveName(projectName: string, platform: SchedulerConfig['platform'] = 'eulsukdo'): string {
