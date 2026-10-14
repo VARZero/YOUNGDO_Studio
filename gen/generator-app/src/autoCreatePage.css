@@ -10,6 +10,12 @@ a { color: #90d6e4; overflow-wrap: anywhere; }
 section, details { padding: 16px; border: 1px solid #34474c; border-radius: 8px; margin: 18px 0; background: #192529; }
 details details { margin: 0; }
 summary { cursor: pointer; font-weight: 600; }
+table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 14px; }
+th, td { text-align: left; vertical-align: top; padding: 10px 8px; border-bottom: 1px solid #34474c; overflow-wrap: anywhere; }
+th:first-child { width: 26%; }
+th:nth-child(2) { width: 19%; }
+th { color: #9fb2b8; }
+#json-fields { scroll-margin-top: 16px; }
 li { margin: 8px 0; overflow-wrap: anywhere; }
 code { color: #ffc09b; overflow-wrap: anywhere; }
 textarea { display: block; width: 100%; min-height: 170px; margin: 8px 0 12px; padding: 12px; resize: vertical; background: #101719; color: #dce8e9; border: 1px solid #52686e; border-radius: 4px; font: 13px/1.5 monospace; }
