@@ -1,6 +1,6 @@
 # 플랫폼 RTL 소스
 
-현재 제공하는 플랫폼은 **EULSUKDO Gen2**뿐입니다. 원본은 `https://github.com/VARZero/EULSUKDO.git`의 `gen2/src/RTL`이며, `gen/platforms/eulsukdo/RTL`에 8개 파일을 그대로 동봉합니다. LSQ와 ORYUKDO는 추후 제공이며 이전 RTL은 포함하지 않습니다.
+현재 제공하는 플랫폼은 **EULSUKDO Gen2**뿐입니다. 원본은 `https://github.com/VARZero/EULSUKDO.git`의 `gen2/src/RTL`이며, `gen/platforms/eulsukdo/RTL`에 선택형 LSQ를 포함한 9개 파일을 그대로 동봉합니다. ORYUKDO 및 이전 별도 LSQ RTL은 포함하지 않습니다.
 
 `versions.json`에는 원본 커밋과 파일별 SHA-256이 있습니다. 같은 정보가 생성 ZIP의 `SOURCE_VERSION.json`에 포함됩니다. 동기화는 커밋된 파일을 가져오므로 로컬 미커밋 수정은 포함하지 않습니다.
 

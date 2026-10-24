@@ -40,6 +40,7 @@ function App() {
     flowWindows: 8,
     flowPcMaxRange: 16,
     enableMemoryOrder: false,
+    lsqEntries: 32,
     memoryCoreId: '3',
   });
 
@@ -173,6 +174,7 @@ function App() {
             predictorMode: parsed.scheduler.predictorMode ?? 'static',
             decoderSource: parsed.scheduler.decoderSource ?? 'generated',
             enableMemoryOrder: parsed.scheduler.enableMemoryOrder ?? false,
+            lsqEntries: parsed.scheduler.lsqEntries ?? 32,
             memoryCoreId: parsed.scheduler.memoryCoreId ??
               parsed.scheduler.coresList.find(core => core.name.toLowerCase() === 'memory')?.id,
           });

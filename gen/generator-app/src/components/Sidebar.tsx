@@ -171,7 +171,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ config, onChange }) => {
                 <option key={core.id} value={core.id}>#{index + 1} {core.name} ({core.count} instance)</option>
               )}
             </select>
-            <p className="slider-description">현재 LSQ는 선택한 경로의 인스턴스 1개와 메모리 요청 1개씩 지원합니다.</p>
+            <label className="form-label" htmlFor="lsq-entries">LSQ 엔트리 수</label>
+            <input id="lsq-entries" type="number" min={config.decodeWidth} value={config.lsqEntries ?? 32}
+              onChange={event => onChange({ ...config, lsqEntries: Number(event.target.value) })} />
+            <p className="slider-description">선택한 경로의 복수 실행 레인을 지원하며, 완료를 확인한 뒤 다음 명령을 시작합니다. Store도 rd=0과 원래 태그로 완료를 보고해야 합니다.</p>
           </>}
         </div>
 

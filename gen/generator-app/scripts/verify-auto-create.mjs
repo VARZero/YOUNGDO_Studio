@@ -83,11 +83,11 @@ try {
   await page.goto(`${auto}#${new URLSearchParams({ config: JSON.stringify(config) })}`);
   await terminal('ready');
   const manifest = JSON.parse(await page.locator('#generated-manifest').textContent());
-  assert.equal(manifest.files.length, 12);
+  assert.equal(manifest.files.length, 13);
   const zip = await download('#download-zip');
   assert.equal(zip.name, manifest.archiveName);
   const entries = unzipStored(zip.data);
-  assert.equal(Object.keys(entries).length, 13);
+  assert.equal(Object.keys(entries).length, 14);
   assert.deepEqual(JSON.parse(Object.entries(entries).find(([key]) => key.endsWith('/youngdo_config.json'))[1]), config);
   for (const file of manifest.files) {
     assert.equal(Buffer.byteLength(entries[file.path], 'utf8'), file.bytes);
@@ -98,7 +98,7 @@ try {
   }
   const textDownload = await download('#download-file');
   assert.equal(textDownload.data.toString('utf8'), entries[manifest.files.at(-1).path]);
-  console.log('PASS: query JSON, Unicode/URL encoding, all 12 per-file pages, manifest and ZIP match');
+  console.log('PASS: query JSON, Unicode/URL encoding, all 13 per-file pages, manifest and ZIP match');
 
   // Import the same settings through Studio and compare all RTL, including generated decoder/top.
   await page.goto(base);
@@ -112,10 +112,48 @@ try {
   }
   console.log('PASS: automatic output matches Studio ZIP RTL byte-for-byte');
 
+  // Enable LSQ through the actual Studio controls and round-trip the saved JSON
+  // through auto-create. Check parameters and the exact upstream LSQ payload.
+  await page.getByRole('button', { name: 'English', exact: true }).click();
+  await page.getByRole('checkbox', { name: 'Enable LSQ', exact: true }).check();
+  await page.getByLabel('Memory EX path', { exact: true }).selectOption('3');
+  await page.getByLabel('LSQ entries', { exact: true }).fill('1');
+  assert.equal(await page.locator('.studio-header .studio-button-primary').isDisabled(), true);
+  await page.getByLabel('LSQ entries', { exact: true }).fill('7');
+  assert.equal(await page.locator('.studio-header .studio-button-primary').isEnabled(), true);
+  const lsqZip = await download('.studio-header .studio-button-primary');
+  const lsqEntries = unzipStored(lsqZip.data);
+  const lsqSettings = JSON.parse(Object.entries(lsqEntries).find(([key]) => key.endsWith('/youngdo_config.json'))[1]);
+  assert.equal(lsqSettings.scheduler.enableMemoryOrder, true);
+  assert.equal(lsqSettings.scheduler.lsqEntries, 7);
+  assert.equal(lsqSettings.scheduler.memoryCoreId, '3');
+  const lsqTop = Object.entries(lsqEntries).find(([key]) => key.endsWith('_top.sv'))[1];
+  assert.match(lsqTop, /parameter bit ENABLE_LSQ\s*=\s*1'b1,/);
+  assert.match(lsqTop, /parameter int STRUCT_LSQ_ENTRIES\s*=\s*7,/);
+  assert.match(lsqTop, /parameter int STRUCT_LSQ_EX_PATH\s*=\s*2,/);
+  assert.ok(Object.keys(lsqEntries).some(key => key.endsWith('/load_store_queue.sv')));
+  await page.screenshot({ path: path.join(appRoot, 'verification/studio-lsq-desktop.png'), fullPage: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  await page.screenshot({ path: path.join(appRoot, 'verification/studio-lsq-mobile.png'), fullPage: true });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto(`${auto}#${new URLSearchParams({ config: JSON.stringify(lsqSettings) })}`);
+  await terminal('ready');
+  assert.deepEqual(unzipStored((await download('#download-zip')).data), lsqEntries);
+  await page.goto(base);
+  await page.locator('input[type="file"]').setInputFiles({ name: 'lsq.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(lsqSettings)) });
+  await page.waitForFunction(() => document.querySelector('.studio-platform-options input[type="number"]')?.value === '7');
+  assert.equal(await page.getByRole('checkbox', { name: /Enable LSQ|LSQ 켜기/, exact: true }).isChecked(), true);
+  await page.getByRole('checkbox', { name: /Enable LSQ|LSQ 켜기/, exact: true }).uncheck();
+  const offTop = Object.entries(unzipStored((await download('.studio-header .studio-button-primary')).data)).find(([key]) => key.endsWith('_top.sv'))[1];
+  assert.match(offTop, /parameter bit ENABLE_LSQ\s*=\s*1'b0,/);
+  console.log('PASS: Studio LSQ controls, depth guard, ON/OFF, JSON reload, mobile layout and auto-create ZIP round-trip');
+
   for (const [label, value] of [
     ['malformed JSON', '{oops'], ['wrong schema', '{}'],
     ['invalid parameter', JSON.stringify({ ...config, scheduler: { ...config.scheduler, istBanks: 3 } })],
-    ['LSQ disabled', JSON.stringify({ ...config, scheduler: { ...config.scheduler, enableMemoryOrder: true } })],
+    ['LSQ missing path', JSON.stringify({ ...config, scheduler: { ...config.scheduler, enableMemoryOrder: true } })],
+    ['LSQ invalid depth', JSON.stringify({ ...config, scheduler: { ...config.scheduler, enableMemoryOrder: true, memoryCoreId: '3', lsqEntries: 1 } })],
     ['ORYUKDO disabled', JSON.stringify({ ...config, scheduler: { ...config.scheduler, platform: 'oryukdo' } })],
     ['null conditions', JSON.stringify({ ...config, instructions: [{ ...config.instructions[0], conditions: null }] })],
   ]) {
@@ -139,7 +177,7 @@ try {
   await page.locator('#config-upload').setInputFiles({ name: 'external.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(external)) });
   await page.waitForFunction(() => {
     if (document.querySelector('#auto-create-status')?.getAttribute('data-state') !== 'ready') return false;
-    return JSON.parse(document.querySelector('#generated-manifest').textContent).files.length === 11;
+    return JSON.parse(document.querySelector('#generated-manifest').textContent).files.length === 12;
   });
   const externalManifest = JSON.parse(await page.locator('#generated-manifest').textContent());
   assert.ok(!externalManifest.files.some(file => file.path.endsWith('_decoder.sv')));

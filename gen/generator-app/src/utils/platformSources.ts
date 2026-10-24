@@ -3,10 +3,11 @@ import rtl_0 from '../../../platforms/eulsukdo/RTL/_element_logics.sv?raw';
 import rtl_1 from '../../../platforms/eulsukdo/RTL/eulsukdo_scheduler.sv?raw';
 import rtl_2 from '../../../platforms/eulsukdo/RTL/flow_control_logic.sv?raw';
 import rtl_3 from '../../../platforms/eulsukdo/RTL/instruction_state_table.sv?raw';
-import rtl_4 from '../../../platforms/eulsukdo/RTL/new_entry_logic.sv?raw';
-import rtl_5 from '../../../platforms/eulsukdo/RTL/physical_register_mapper.sv?raw';
-import rtl_6 from '../../../platforms/eulsukdo/RTL/ready_station.sv?raw';
-import rtl_7 from '../../../platforms/eulsukdo/RTL/write_back_concatenation.sv?raw';
+import rtl_4 from '../../../platforms/eulsukdo/RTL/load_store_queue.sv?raw';
+import rtl_5 from '../../../platforms/eulsukdo/RTL/new_entry_logic.sv?raw';
+import rtl_6 from '../../../platforms/eulsukdo/RTL/physical_register_mapper.sv?raw';
+import rtl_7 from '../../../platforms/eulsukdo/RTL/ready_station.sv?raw';
+import rtl_8 from '../../../platforms/eulsukdo/RTL/write_back_concatenation.sv?raw';
 
 export const rtlSourceSets = {
   eulsukdo: {
@@ -14,25 +15,27 @@ export const rtlSourceSets = {
     "eulsukdo_scheduler.sv": rtl_1,
     "flow_control_logic.sv": rtl_2,
     "instruction_state_table.sv": rtl_3,
-    "new_entry_logic.sv": rtl_4,
-    "physical_register_mapper.sv": rtl_5,
-    "ready_station.sv": rtl_6,
-    "write_back_concatenation.sv": rtl_7,
+    "load_store_queue.sv": rtl_4,
+    "new_entry_logic.sv": rtl_5,
+    "physical_register_mapper.sv": rtl_6,
+    "ready_station.sv": rtl_7,
+    "write_back_concatenation.sv": rtl_8,
   },
 };
 export const sourceVersions = {
   "eulsukdo": {
     "repository": "https://github.com/VARZero/EULSUKDO.git",
-    "commit": "975d3599bff47306901c95eb3eccd530ff8c1636",
+    "commit": "9b0e1c6b792b132f05844c3113ff8dfde712cd77",
     "path": "gen2/src/RTL",
     "sha256": {
       "_element_logics.sv": "b330cb3f3af0bc1e0650f40ea11b5d407378718bc6a945f669c1228f1fa8df6d",
-      "eulsukdo_scheduler.sv": "b16bc7a96d0eda8bfafd2f1a870c8447d1122116bd370ed13094c82810c32acc",
-      "flow_control_logic.sv": "95eb5b231dd2437125320167fabf6626c1e7e9346a59c6c6068ffb66644c8c73",
-      "instruction_state_table.sv": "a57825300c6b71ea336c4eda0fb8bbdae74037cfa30fe5a70b1279980323d807",
+      "eulsukdo_scheduler.sv": "333f20659a0ae18bf7f22318e288b0729fc8089b01fa28db4b35b84686dcbdad",
+      "flow_control_logic.sv": "8bc64d4778f86e270172a5777723830b58932e171d40ec4c9ad236ac465715c6",
+      "instruction_state_table.sv": "3362962bcd15bd66431baafafef0f48bec3f8be552c65902b832e75028f7569e",
+      "load_store_queue.sv": "2f034721275a73c6400af5d1868378e337f17c7cae8f56dd2a8cedf9e16b7a99",
       "new_entry_logic.sv": "bab7518424804500c5c9d42fca1802fed3f602f7ba690dd9084c309917e33193",
-      "physical_register_mapper.sv": "17b63277642862da00aa2f98a9ee63536ecf11557498ae7423a018727e99bdca",
-      "ready_station.sv": "e96b4c896dd73d9d4584ee76d3ac73365ebbd753a4fc2ea1afcb202daa75725c",
+      "physical_register_mapper.sv": "05f8efbe29c7378fbb6d5e25c6ed6e425d3d5aeba9dbb0cc85c733fa77b41d06",
+      "ready_station.sv": "d33c25b208cdcc0f24d91e951ac51608d30e81b0c305c3fc9e0cdc73915ab059",
       "write_back_concatenation.sv": "9a62e2fdcdd6723a241d5d7e1264be3053427fbf47efa18dc878f6cd6fb41b68"
     }
   }

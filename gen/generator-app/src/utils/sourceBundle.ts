@@ -98,8 +98,8 @@ export function projectTopFileName(projectName: string, platform: SchedulerConfi
 export function buildSourceFiles(topSource: string, decoderSource: string | null, isaName: string, projectName: string, settingsJson: string, platform: SchedulerConfig['platform'] = 'eulsukdo'): Record<string, string> {
   const sources = rtlSourcesFor(platform);
   const settings = JSON.parse(settingsJson);
-  if (settings.scheduler?.enableMemoryOrder || settings.scheduler?.platform === 'oryukdo')
-    throw new Error('LSQ / ORYUKDO: coming later');
+  if (settings.scheduler?.platform === 'oryukdo')
+    throw new Error('ORYUKDO: coming later');
   const projectDir = safeProjectName(projectName);
   const selected = 'eulsukdo';
   return {

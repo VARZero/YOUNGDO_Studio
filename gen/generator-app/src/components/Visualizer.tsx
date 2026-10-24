@@ -208,7 +208,7 @@ export const Visualizer: React.FC<VisualizerProps> = ({ config }) => {
 
           {config.enableMemoryOrder && memoryCoreIndex >= 0 && <g
             onMouseEnter={() => showTooltip('Memory Order Queue (LSQ)',
-              'NEL에서 받은 메모리 명령의 순서를 보관하고, AGU 결과가 준비되면 앞선 명령부터 메모리 요청을 내보냅니다. 한 번에 하나의 요청만 진행합니다.')}
+              'NEL→IST 접수 순서와 RS에서 준비된 명령의 Flow Window + PC를 비교합니다. 일치한 명령을 EX로 보내고 완료 후 다음 명령을 시작합니다. 실제 AGU와 메모리는 EX에 연결합니다.')}
             onMouseLeave={hideTooltip}
           >
             <path d={`M ${memoryCoreX} 445 L ${memoryCoreX} 495`} className="flow-line flow-line-active" />

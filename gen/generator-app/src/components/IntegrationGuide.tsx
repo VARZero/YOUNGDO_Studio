@@ -32,8 +32,12 @@ export function IntegrationGuide({ language, config }: { language: Language; con
       </div>
     </details>
     <details className="studio-guide-section">
-      <summary>{text('3. LSQ·오륙도 — 추후 제공', '3. LSQ / ORYUKDO — coming later')}</summary>
-      <div className="studio-guide-body"><p>{text('이번 버전에는 LSQ, 오륙도 복구 회로와 분기예측 인터페이스가 포함되지 않습니다. 해당 설정이 켜진 예전 JSON은 불러올 수 없습니다. 메모리 실행 유닛을 추가해도 메모리 순서 보장이 자동으로 추가되지 않습니다.', 'This release does not include LSQ, ORYUKDO recovery or predictor interfaces. Legacy JSON enabling these features is rejected. Adding a memory EX unit does not automatically provide memory ordering.')}</p></div>
+      <summary>{text('3. 선택형 LSQ와 메모리 완료', '3. Optional LSQ and memory completion')}</summary>
+      <div className="studio-guide-body">
+        <p>{text('LSQ를 켜면 NEL→IST 접수 순서를 아래 FIFO에, RS에서 준비된 명령을 위 FIFO에 보관합니다. Flow Window + 전체 PC가 일치하면 실행을 시작하고, 같은 태그의 WBC 완료 후 두 head를 제거합니다. 기본 깊이는 32이며 디코드 폭 이상이어야 합니다.', 'With LSQ enabled, the lower FIFO records NEL-to-IST order and the upper FIFO holds ready RS commands. Matching Flow Window + full PC starts execution; matching WBC completion removes both heads. Default depth is 32 and must be at least the decode width.')}</p>
+        <p>{text('선택한 EX 경로의 모든 명령을 직렬화합니다. 복수 실행 레인을 지원하지만 경로 전체에서 실행 중인 메모리 명령은 하나입니다. Store도 다음 메모리 명령을 시작해도 되는 시점에 rd=0과 원래 태그로 완료를 보고해야 합니다. LSQ는 RS와 EX 사이에 있으며 AGU와 실제 메모리는 EX에서 연결합니다.', 'All instructions on the selected EX path are serialized. Multiple execution lanes are supported, with one memory command in flight across the path. Stores must report rd=0 and the original tag only when the next memory operation may start. LSQ sits between RS and EX; connect the AGU and actual memory in EX.')}</p>
+        <p>{text('LSQ 기본값은 꺼짐입니다. 오륙도 복구·분기예측, 주소 비교와 Store-to-Load forwarding은 포함하지 않습니다.', 'LSQ defaults to off. ORYUKDO recovery/prediction, address comparison and Store-to-Load forwarding are not included.')}</p>
+      </div>
     </details>
     <details className="studio-guide-section">
       <summary>{text('4. 통합 검증', '4. Integration verification')}</summary>

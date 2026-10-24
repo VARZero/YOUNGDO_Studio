@@ -24,6 +24,7 @@ export interface SchedulerConfig {
   flowWindows: number;
   flowPcMaxRange?: number;
   enableMemoryOrder?: boolean;
+  lsqEntries?: number;
   memoryCoreId?: string;
   isaName?: string;
   instBitWidth?: number;
@@ -41,7 +42,8 @@ export function rtlSourcesFor(platform: SchedulerConfig['platform']): Record<str
 
 export function validateSchedulerConfig(config: SchedulerConfig): string | null {
   if (config.platform === 'oryukdo') return '오륙도는 추후 제공 예정입니다.';
-  if (config.enableMemoryOrder) return 'LSQ는 추후 제공 예정입니다.';
+  if (config.enableMemoryOrder !== undefined && typeof config.enableMemoryOrder !== 'boolean')
+    return 'LSQ 사용 여부는 불리언이어야 합니다.';
   if (config.platform !== undefined && config.platform !== 'eulsukdo' && config.platform !== 'oryukdo')
     return '플랫폼은 을숙도 또는 오륙도여야 합니다.';
   if (config.predictorMode !== undefined && config.predictorMode !== 'static' && config.predictorMode !== 'external')
@@ -64,6 +66,14 @@ export function validateSchedulerConfig(config: SchedulerConfig): string | null 
     return '소스 피연산자 수는 현재 2개만 지원합니다.';
   if (!config.coresList || config.coresList.length < 2 || config.coresList.some(core => !Number.isSafeInteger(core.count) || core.count < 1))
     return 'EX 실행 경로를 2개 이상 만들고 각 경로에 실행 유닛을 1개 이상 배치하세요.';
+  if (config.lsqEntries !== undefined && (!Number.isSafeInteger(config.lsqEntries) || config.lsqEntries < 1))
+    return 'LSQ 엔트리 수는 1 이상의 정수여야 합니다.';
+  if (config.enableMemoryOrder) {
+    if (config.coresList.filter(core => core.id === config.memoryCoreId).length !== 1)
+      return 'LSQ를 사용할 메모리 EX 경로를 선택하세요.';
+    if ((config.lsqEntries ?? 32) < config.decodeWidth)
+      return 'LSQ 엔트리 수는 디코드 폭 이상이어야 합니다.';
+  }
   const issue = config.istIssueWidth ?? config.coresList.reduce((sum, core) => sum + core.count, 0);
   const banks = config.istBanks ?? 2 ** Math.ceil(Math.log2(Math.max(config.decodeWidth, issue)));
   if ([config.istIssueWidth, config.istBanks, config.rsFifoEntries, issue, banks]
@@ -84,6 +94,10 @@ export function generateRTL(config: SchedulerConfig): string {
   const schedulerSource = rtlSourcesFor(config.platform)['eulsukdo_scheduler.sv'];
 
   const totalCores = config.coresList.reduce((sum, core) => sum + core.count, 0);
+  // Match Studio's legacy-JSON default even when LSQ is off, so browser and
+  // auto-create produce the same wrapper from settings without memoryCoreId.
+  const memoryPath = config.coresList.findIndex(core => config.memoryCoreId === undefined
+    ? core.name.toLowerCase() === 'memory' : core.id === config.memoryCoreId);
   const defaults: Record<string, string> = {
     IS_INST_BITWIDTH: String(config.instBitWidth ?? 32),
     IS_INST_REGS: String(config.instRegs ?? 32),
@@ -105,6 +119,10 @@ export function generateRTL(config: SchedulerConfig): string {
     STRUCT_FLOW_WINDOWS: String(config.flowWindows),
     STRUCT_FLOW_PC_MAX_RANGE: String(config.flowPcMaxRange ?? 16),
     STRUCT_RS_FIFO_WIDTH: String(config.rsFifoEntries ?? 128),
+    ENABLE_LSQ: config.enableMemoryOrder ? "1'b1" : "1'b0",
+    STRUCT_LSQ_ENTRIES: String(config.lsqEntries ?? 32),
+    // This is a PATH index, not the first issue/WBC lane of that path.
+    STRUCT_LSQ_EX_PATH: String(Math.max(0, memoryPath)),
     STRUCT_IST_ISSUE_WIDTH: config.istIssueWidth === undefined ? 'STRUCT_EX_CORES' : String(config.istIssueWidth),
     STRUCT_IST_BANKS: config.istBanks === undefined
       ? '1 << $clog2((STRUCT_DECODE_NEW_INST > STRUCT_IST_ISSUE_WIDTH) ? STRUCT_DECODE_NEW_INST : STRUCT_IST_ISSUE_WIDTH)'
