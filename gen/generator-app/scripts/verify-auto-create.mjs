@@ -149,12 +149,57 @@ try {
   assert.match(offTop, /parameter bit ENABLE_LSQ\s*=\s*1'b0,/);
   console.log('PASS: Studio LSQ controls, depth guard, ON/OFF, JSON reload, mobile layout and auto-create ZIP round-trip');
 
+  // Select ORYUKDO in the real UI, then verify the two predictor modes and
+  // exact Studio/auto-create source identity, including the selected manifest.
+  await page.locator('.studio-profile-list button').nth(1).click();
+  assert.equal(await page.locator('.studio-profile-list button').nth(1).getAttribute('aria-pressed'), 'true');
+  assert.equal(await page.getByLabel('IST SRAM banks', { exact: true }).isDisabled(), true);
+  assert.equal(await page.getByRole('checkbox', { name:'Enable LSQ', exact:true }).isDisabled(), true);
+  assert.equal(await page.getByLabel('LSQ entries', { exact:true }).count(), 0);
+  let oryEntries=unzipStored((await download('.studio-header .studio-button-primary')).data);
+  let oryTop=Object.entries(oryEntries).find(([key])=>key.endsWith('_top.sv'))[1];
+  assert.ok(oryTop.includes("EXTERNAL_PREDICTOR=1'b0"));
+  assert.ok(oryTop.includes('i_frontend_exception') && oryTop.includes('i_decode_store'));
+  await page.getByRole('button', { name:/ORYUKDO integration/ }).click();
+  await page.getByLabel('Branch predictor mode').selectOption('external');
+  oryEntries=unzipStored((await download('.studio-header .studio-button-primary')).data);
+  oryTop=Object.entries(oryEntries).find(([key])=>key.endsWith('_top.sv'))[1];
+  assert.ok(oryTop.includes("EXTERNAL_PREDICTOR=1'b1"));
+  const orySettings=JSON.parse(Object.entries(oryEntries).find(([key])=>key.endsWith('/youngdo_config.json'))[1]);
+  const oryVersion=JSON.parse(Object.entries(oryEntries).find(([key])=>key.endsWith('/SOURCE_VERSION.json'))[1]);
+  assert.ok(oryVersion.repository.endsWith('/ORYUKDO.git'));
+  assert.equal(Object.keys(oryVersion.sha256).length,17);
+  assert.ok(Object.keys(oryEntries).some(key=>key.endsWith('/INTEGRATION.md')));
+  await page.getByRole('button', { name:/Architecture/ }).click();
+  assert.ok((await page.locator('.studio-export-summary').textContent()).includes('VARZero/ORYUKDO'));
+  assert.ok((await page.locator('.studio-export-summary').textContent()).includes(oryVersion.commit.slice(0,12)));
+  await page.screenshot({ path:path.join(appRoot,'verification/studio-oryukdo-desktop.png'), fullPage:true });
+  await page.setViewportSize({ width:390,height:844 });
+  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+  await page.screenshot({ path:path.join(appRoot,'verification/studio-oryukdo-mobile.png'),fullPage:true });
+  await page.setViewportSize({ width:1440,height:1000 });
+  await page.goto(`${auto}#${new URLSearchParams({ config:JSON.stringify(orySettings) })}`);
+  await terminal('ready');
+  const oryManifest=JSON.parse(await page.locator('#generated-manifest').textContent());
+  assert.deepEqual(oryManifest.sourceVersion,oryVersion);
+  assert.deepEqual(unzipStored((await download('#download-zip')).data),oryEntries);
+  const selectedOryFile=oryManifest.files.find(file=>file.path.endsWith('/oryukdo_dependency_mapper.sv'));
+  await page.goto(selectedOryFile.url);await terminal('ready');
+  assert.equal(await page.locator('#generated-file').textContent(),oryEntries[selectedOryFile.path]);
+  const oryExternal={...orySettings,scheduler:{...orySettings.scheduler,decoderSource:'external'}};
+  await page.goto(`${auto}#${new URLSearchParams({ config:JSON.stringify(oryExternal) })}`);
+  await terminal('ready');
+  const oryExternalEntries=unzipStored((await download('#download-zip')).data);
+  assert.ok(!Object.keys(oryExternalEntries).some(key=>key.endsWith('_decoder.sv')));
+  assert.match(Object.entries(oryExternalEntries).find(([key])=>key.endsWith('_top.sv'))[1],/input wire .*i_decode_memory/);
+  console.log('PASS: ORYUKDO selection, fixed structure, both predictors, external decode, source manifest, individual file, ZIP round-trip and mobile layout');
+
   for (const [label, value] of [
     ['malformed JSON', '{oops'], ['wrong schema', '{}'],
     ['invalid parameter', JSON.stringify({ ...config, scheduler: { ...config.scheduler, istBanks: 3 } })],
     ['LSQ missing path', JSON.stringify({ ...config, scheduler: { ...config.scheduler, enableMemoryOrder: true } })],
     ['LSQ invalid depth', JSON.stringify({ ...config, scheduler: { ...config.scheduler, enableMemoryOrder: true, memoryCoreId: '3', lsqEntries: 1 } })],
-    ['ORYUKDO disabled', JSON.stringify({ ...config, scheduler: { ...config.scheduler, platform: 'oryukdo' } })],
+    ['ORYUKDO fixed PRM capacity', JSON.stringify({ ...config, scheduler: { ...config.scheduler, platform: 'oryukdo', prmBuffer: 8 } })],
     ['null conditions', JSON.stringify({ ...config, instructions: [{ ...config.instructions[0], conditions: null }] })],
   ]) {
     await page.goto(`${auto}#${new URLSearchParams({ config: value })}`);

@@ -1,6 +1,6 @@
 # 플랫폼 RTL 소스
 
-현재 제공하는 플랫폼은 **EULSUKDO Gen2**뿐입니다. 원본은 `https://github.com/VARZero/EULSUKDO.git`의 `gen2/src/RTL`이며, `gen/platforms/eulsukdo/RTL`에 선택형 LSQ를 포함한 9개 파일을 그대로 동봉합니다. ORYUKDO 및 이전 별도 LSQ RTL은 포함하지 않습니다.
+**EULSUKDO Gen2**와 **ORYUKDO Gen2**를 제공합니다. 각 `VARZero/EULSUKDO`, `VARZero/ORYUKDO` 저장소의 `gen2/src/RTL`을 각각 `gen/platforms/eulsukdo/RTL`, `gen/platforms/oryukdo/RTL`에 그대로 동봉합니다. 을숙도는 9개, 오륙도는 공통 모듈을 포함한 17개 파일입니다. 플랫폼별 소스는 독립적으로 고정되며, 오륙도 업데이트가 을숙도 소스를 바꾸지 않습니다.
 
 `versions.json`에는 원본 커밋과 파일별 SHA-256이 있습니다. 같은 정보가 생성 ZIP의 `SOURCE_VERSION.json`에 포함됩니다. 동기화는 커밋된 파일을 가져오므로 로컬 미커밋 수정은 포함하지 않습니다.
 
@@ -15,10 +15,11 @@ python3 gen/scripts/sync_platforms.py
 ## 옆 디렉터리의 현재 소스로 교체
 
 ```sh
-python3 gen/scripts/sync_platforms.py --local-repo ../EULSUKDO --ref main
+python3 gen/scripts/sync_platforms.py --platform eulsukdo --local-repo ../EULSUKDO --ref main
+python3 gen/scripts/sync_platforms.py --platform oryukdo --local-repo ../ORYUKDO --ref main
 ```
 
-원격 `main`을 명시적으로 적용할 때는 `python3 gen/scripts/sync_platforms.py --ref main`을 사용합니다. 현재 Gen2가 없는 리비전은 거절합니다. 소스를 바꾼 뒤 다음을 실행하고 버전 기록과 RTL을 함께 커밋하세요.
+원격 `main`을 명시적으로 적용할 때는 `python3 gen/scripts/sync_platforms.py --platform oryukdo --ref main`처럼 플랫폼을 지정합니다. 인자 없는 실행은 모든 플랫폼의 고정 커밋을 재현합니다. 현재 Gen2가 없는 리비전은 거절합니다. 소스를 바꾼 뒤 다음을 실행하고 버전 기록과 RTL을 함께 커밋하세요.
 
 ```sh
 cd gen/generator-app

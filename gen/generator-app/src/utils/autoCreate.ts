@@ -18,7 +18,7 @@ export function generateProject(input: unknown) {
   const top = generateRTL(config);
   const decoder = external ? null : generateDecoderRTL(input.decoder, input.formats, input.instructions, config.coresList);
   const files = buildSourceFiles(top, decoder, config.isaName, projectName, JSON.stringify(input, null, 2), config.platform);
-  return { files, archiveName: projectArchiveName(projectName, config.platform), topName: projectTopFileName(projectName, config.platform) };
+  return { files, platform: config.platform ?? 'eulsukdo', archiveName: projectArchiveName(projectName, config.platform), topName: projectTopFileName(projectName, config.platform) };
 }
 
 export function readAutoRequest(url: URL) {

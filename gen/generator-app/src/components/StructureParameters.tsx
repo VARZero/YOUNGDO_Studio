@@ -31,20 +31,24 @@ export function StructureParameters({ language, config, onChange }: {
   language: Language; config: SchedulerConfig; onChange: (config: SchedulerConfig) => void;
 }) {
   const ko = language === 'ko';
+  const ory = config.platform === 'oryukdo';
+  const names: Partial<Record<ParameterKey, string>> = { prmUpdate: 'UPDATES', flowWindows: 'WINDOWS', flowPcMaxRange: 'WINDOW_SIZE' };
+  const available = parameters.filter(parameter => !ory || parameter.key !== 'unallocatePhyreg');
   return <details className="studio-structure-parameters">
     <summary>{ko ? '상세 구조 파라미터 · PRM / FCL' : 'Detailed structure parameters · PRM / FCL'}</summary>
+    {ory && <p>{ko ? '오륙도는 PRM 대기 슬롯 4와 단일 순차 반환을 사용합니다. IST 뱅크는 자동이며 메모리 용량은 frontier와 같습니다.' : 'ORYUKDO uses four PRM wait slots and single ordered returns. IST banks are automatic; memory capacity follows the frontier.'}</p>}
     <p>{ko ? '값은 설정 JSON과 생성 RTL에 함께 반영됩니다. 기본값 복원은 아래 다섯 항목만 변경합니다.'
       : 'Values are saved in settings JSON and generated RTL. Reset changes only the five fields below.'}</p>
-    <div className="studio-parameter-grid">{parameters.map(parameter => <label className="studio-parameter-field" key={parameter.key}>
+    <div className="studio-parameter-grid">{available.map(parameter => <label className="studio-parameter-field" key={parameter.key}>
       <span>{ko ? parameter.ko : parameter.en}</span>
-      <code>{parameter.rtl}</code>
-      <input type="number" min={parameter.min} step="1" aria-label={parameter.rtl}
+      <code>{ory ? names[parameter.key] ?? 'Fixed: 4' : parameter.rtl}</code>
+      <input disabled={ory && parameter.key === 'prmBuffer'} type="number" min={parameter.min} step="1" aria-label={parameter.rtl}
         aria-describedby={`help-${parameter.key}`} value={config[parameter.key] ?? parameter.initial}
         onChange={event => onChange({ ...config, [parameter.key]: Number(event.target.value) })} />
       <small id={`help-${parameter.key}`}>{ko ? parameter.helpKo : parameter.helpEn}</small>
     </label>)}</div>
     <button type="button" className="studio-button" onClick={() => onChange({ ...config,
-      prmBuffer: 4, prmUpdate: 5, unallocatePhyreg: 4, flowWindows: 8, flowPcMaxRange: 16,
+      prmBuffer: 4, prmUpdate: 5, unallocatePhyreg: ory ? 1 : 4, flowWindows: 8, flowPcMaxRange: 16,
     })}>{ko ? '상세 설정 기본값 복원' : 'Reset detailed settings'}</button>
   </details>;
 }

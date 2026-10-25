@@ -88,7 +88,7 @@ async function generate(configText: string, selectedFile: string | null) {
     });
     const manifest = {
       schemaVersion: 1, archiveName: project.archiveName, selectedFile: selected,
-      sourceVersion: sourceVersions.eulsukdo,
+      sourceVersion: sourceVersions[project.platform],
       directories: Object.keys(project.files).filter(path => path.endsWith('/')),
       files,
     };

@@ -3,6 +3,33 @@ import type { SchedulerConfig } from '../utils/rtlGenerator';
 
 export function IntegrationGuide({ language, config }: { language: Language; config: SchedulerConfig }) {
   const text = (ko: string, en: string) => language === 'ko' ? ko : en;
+  if (config.platform === 'oryukdo') return <section className="studio-integration-guide" aria-labelledby="integration-guide-title">
+    <h2 id="integration-guide-title">{text('오륙도 Gen2 연결 안내', 'ORYUKDO Gen2 integration guide')}</h2>
+    <p>{text('ZIP은 복구 가능한 스케줄러와 선택한 디코더입니다. 프런트엔드, 실제 EX, 데이터 레지스터 파일, MMU와 CSR 실행기는 외부에 연결합니다. 완성 CPU가 아닙니다.', 'The ZIP contains a recoverable scheduler and the selected decoder. Supply the frontend, EX implementations, data register file, MMU and CSR executor. It is not a complete CPU.')}</p>
+    <details open className="studio-guide-section"><summary>{text('1. 프런트엔드와 명령 분류', '1. Frontend and instruction classification')}</summary><div className="studio-guide-body">
+      <p><code>o_fetch_pc / o_fetch_epoch → i_decode_pc / i_decode_epoch / i_decode_valid / o_decode_get</code></p>
+      <p>{text('PC 순서의 연속 valid 묶음을 보내고 접수될 때까지 유지하세요. epoch 변경과 o_flush를 따라 이전 응답을 폐기합니다. 리셋 해제 후 첫 에지까지 i_reset_pc를 유지합니다. 코어가 접수하지 않은 뒤쪽 명령은 새 fetch PC를 따라 다시 제시해야 합니다.', 'Present a contiguous valid prefix in PC order and hold it until accepted. Discard stale responses on epoch change or o_flush. Hold i_reset_pc through the first edge after reset release. Re-present an unaccepted suffix according to the new fetch PC.')}</p>
+      <p>{text('생성 디코더는 i_instruction에서 레지스터·즉시값·micro-op·제어 명령을 해석하고 선택한 EX 경로를 메모리로 분류합니다. i_decode_store, i_decode_csr, i_decode_end는 이 모드에서도 프런트엔드 입력입니다. Store를 Load로 처리하지 않도록 올바르게 분류하고 CSR은 메모리 경로와 분리하세요. i_frontend_exception/cause는 명령 인출 오류이며 생성 디코더의 illegal 예외보다 우선합니다. illegal 원인은 2입니다.', 'Generated decode reads i_instruction for registers, immediate, micro-op and control flags; the selected EX path is classified as memory. The frontend still supplies i_decode_store, i_decode_csr and i_decode_end. Classify stores correctly and keep CSR distinct from memory. i_frontend_exception/cause reports fetch faults and takes priority over generated illegal-instruction cause 2.')}</p>
+      <p>{text('외부 디코더 모드에서는 모든 i_decode_* 필드를 직접 제공합니다. i_decode_store이면 i_decode_memory도 1이어야 합니다. PC·데이터 폭은 32, PC 증분은 4, generation/epoch는 32비트입니다.', 'External decode supplies every i_decode_* field. A store must also be classified as memory. PC/data widths are 32, PC step is 4, and generation/epoch widths are 32 bits.')}</p>
+    </div></details>
+    <details className="studio-guide-section"><summary>{text('2. EX 결과와 레지스터 파일', '2. EX results and register file')}</summary><div className="studio-guide-body">
+      <p><code>o_ex_valid / i_ex_get / o_ex_data / o_ex_token</code> → <code>i_result_* / o_result_accept</code></p>
+      <pre className="studio-guide-code"><code>{`// o_ex_data[lane*EX_W +: EX_W], MSB -> LSB:
+// {rs2, rs1, rd, immediate, microop, path, flow, token, PC}
+// token = {generation, slot}; rs/rd identify physical registers.
+// Write the external RF ONLY on o_wb_valid using o_wb_phy/data/uop.
+// o_result_accept is queue acceptance, not RF write authorization.`}</code></pre>
+      <p>{text('일반 EX는 원래 token과 데이터·실제 다음 PC·예외를 반환하고 수락될 때까지 유지합니다. flush로 취소된 작업은 EX에서도 폐기하세요. 내부 Ready는 실제 RF 쓰기보다 한 사이클 늦습니다. 메모리 EX는 일반 결과 경로에 중복 반환하지 않고 AGU 경로를 사용합니다.', 'Normal EX returns the original token, data, actual next PC and fault, holding the result until accepted. EX must discard work canceled by flush. Internal Ready follows RF write by one cycle. Memory EX uses AGU instead of returning a duplicate normal result.')}</p>
+    </div></details>
+    <details className="studio-guide-section"><summary>{text('3. 메모리·MMU·CSR', '3. Memory, MMU and CSR')}</summary><div className="studio-guide-body">
+      <p>{text('메모리 순서 처리는 항상 포함되며 용량은 frontier 엔트리 수와 같습니다. AGU는 주소·Store 데이터·바이트 마스크와 MMU 검사 결과를 i_agu_*로 전달합니다. MMIO 등 부작용 접근은 i_agu_nonspec으로 표시합니다. 내부 Store 전달을 지원하고 외부 공개는 선행 윈도우 확정 뒤 진행합니다.', 'Memory ordering is always included and its capacity follows frontier entries. AGU supplies address, store data, byte mask and MMU result on i_agu_*. Mark MMIO and other side-effecting accesses with i_agu_nonspec. Stores can forward internally; external publication waits for older windows to commit.')}</p>
+      <p><code>o_mem_* / i_mem_ready / i_mem_response_* / o_mem_response_ready</code>: {text('외부 버스는 한 트랜잭션씩 처리합니다. 응답은 요청 완료를 뜻하며 Store 오류는 부분적인 외부 쓰기가 없다는 계약이 필요합니다. CSR은 순서가 된 뒤 실행하고 완료를 반환합니다. 인터럽트는 확정된 윈도우 경계에서 처리하며, trap 시 외부 CSR 장치가 상태와 인터럽트 조건을 갱신해야 합니다.', 'The external bus handles one transaction at a time. A response acknowledges completion; a precise store fault requires no partial external write. Execute CSR at ordered issue and return completion. Interrupts are taken at confirmed window boundaries; external CSR logic must update trap state and interrupt eligibility.')}</p>
+    </div></details>
+    <details className="studio-guide-section"><summary>{text('4. 분기예측과 검증', '4. Prediction and verification')}</summary><div className="studio-guide-body">
+      <p>{text('정적 모드는 다음 순차 PC를 예측합니다. 외부 모드는 정적 예측기를 제거하고 요청의 PC·epoch와 일치하는 i_predict_* 응답을 기다립니다. 응답이 없으면 분기 접수가 정체되며 정적 fallback은 없습니다. 생성 RTL의 연결 검사는 시스템 기능 및 클럭 검증을 대신하지 않습니다.', 'Static mode predicts the sequential PC. External mode removes static prediction and waits for an i_predict_* response matching the request PC and epoch. Missing responses stall control admission; there is no static fallback. Generated connection checks do not replace system functionality or timing validation.')}</p>
+      <pre className="studio-guide-code"><code>{`verilator --lint-only -Wno-WIDTH --unroll-count 256 --top-module oryukdo_example_top RTL/*_top.sv ${config.decoderSource !== 'external' ? 'RTL/*_decoder.sv ' : ''}RTL/oryukdo_rtl/*.sv`}</code></pre>
+    </div></details>
+  </section>;
   return <section className="studio-integration-guide" aria-labelledby="integration-guide-title">
     <h2 id="integration-guide-title">{text('Gen2 연결 안내', 'Gen2 integration guide')}</h2>
     <p>{text('ZIP에는 현재 을숙도 Gen2 스케줄러와 선택한 디코더가 들어갑니다. EX 실행 유닛, 데이터용 물리 레지스터 파일과 메모리는 사용자 프로젝트에서 연결하세요. 기본 ADD/SUB/LW 설정은 예시이며 전체 RV32I 코어가 아닙니다.', 'The ZIP includes the current Gen2 scheduler and selected decoder. Supply EX units, the physical register data file and memory. Default ADD/SUB/LW settings are examples, not a complete RV32I core.')}</p>

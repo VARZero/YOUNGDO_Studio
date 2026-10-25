@@ -36,19 +36,19 @@ export interface SchedulerConfig {
 
 export { sourceVersions };
 export function rtlSourcesFor(platform: SchedulerConfig['platform']): Record<string, string> {
-  if (platform !== undefined && platform !== 'eulsukdo') throw new Error('오륙도는 추후 제공 예정입니다.');
-  return rtlSourceSets.eulsukdo;
+  if (platform !== undefined && platform !== 'eulsukdo' && platform !== 'oryukdo') throw new Error('Unknown platform');
+  return rtlSourceSets[platform ?? 'eulsukdo'];
 }
 
 export function validateSchedulerConfig(config: SchedulerConfig): string | null {
-  if (config.platform === 'oryukdo') return '오륙도는 추후 제공 예정입니다.';
+  const oryukdo = config.platform === 'oryukdo';
   if (config.enableMemoryOrder !== undefined && typeof config.enableMemoryOrder !== 'boolean')
     return 'LSQ 사용 여부는 불리언이어야 합니다.';
   if (config.platform !== undefined && config.platform !== 'eulsukdo' && config.platform !== 'oryukdo')
     return '플랫폼은 을숙도 또는 오륙도여야 합니다.';
   if (config.predictorMode !== undefined && config.predictorMode !== 'static' && config.predictorMode !== 'external')
     return '분기예측기 설정이 올바르지 않습니다.';
-  if (config.predictorMode === 'external')
+  if (config.predictorMode === 'external' && !oryukdo)
     return '외부 분기예측기는 오륙도에서만 사용할 수 있습니다.';
   if (config.decoderSource !== undefined && config.decoderSource !== 'generated' && config.decoderSource !== 'external')
     return '디코더 입력 방식을 선택하세요.';
@@ -68,7 +68,17 @@ export function validateSchedulerConfig(config: SchedulerConfig): string | null 
     return 'EX 실행 경로를 2개 이상 만들고 각 경로에 실행 유닛을 1개 이상 배치하세요.';
   if (config.lsqEntries !== undefined && (!Number.isSafeInteger(config.lsqEntries) || config.lsqEntries < 1))
     return 'LSQ 엔트리 수는 1 이상의 정수여야 합니다.';
-  if (config.enableMemoryOrder) {
+  if (oryukdo) {
+    if ((config.instRegs ?? 32) < 2 || config.phyRegs < (config.instRegs ?? 32) + config.decodeWidth)
+      return '오륙도 PHY는 ISA 레지스터 수 + 디코드 폭 이상이어야 합니다.';
+    if (config.prmBuffer !== 4 || config.unallocatePhyreg !== 1 || config.istBanks !== undefined)
+      return '오륙도는 PRM 대기 슬롯 4, 반환 폭 1, 자동 IST 뱅크를 사용합니다.';
+    if (config.enableMemoryOrder === false || (config.lsqEntries !== undefined && config.lsqEntries !== config.robEntries))
+      return '오륙도 메모리 순서는 항상 켜지며 용량은 frontier 엔트리 수를 따릅니다.';
+    if (config.decoderSource !== 'external' && config.coresList.filter(core => core.id === config.memoryCoreId).length !== 1)
+      return '오륙도 생성 디코더의 메모리 EX 경로를 선택하세요.';
+  }
+  if (config.enableMemoryOrder && !oryukdo) {
     if (config.coresList.filter(core => core.id === config.memoryCoreId).length !== 1)
       return 'LSQ를 사용할 메모리 EX 경로를 선택하세요.';
     if ((config.lsqEntries ?? 32) < config.decodeWidth)
@@ -91,6 +101,7 @@ export function validateSchedulerConfig(config: SchedulerConfig): string | null 
 export function generateRTL(config: SchedulerConfig): string {
   const error = validateSchedulerConfig(config);
   if (error) throw new Error(error);
+  if (config.platform === 'oryukdo') return generateOryukdoRTL(config);
   const schedulerSource = rtlSourcesFor(config.platform)['eulsukdo_scheduler.sv'];
 
   const totalCores = config.coresList.reduce((sum, core) => sum + core.count, 0);
@@ -167,4 +178,81 @@ export function generateRTL(config: SchedulerConfig): string {
     return `        .${name?.padEnd(30)}(${name})`;
   }).join(',\n')}` : '';
   return `${header}\n\n${decoderBlock}\n\n    eulsukdo_scheduler #(\n${Object.keys(defaults).map(name => `        .${name}(${name})`).join(',\n')},\n        .IS_INST_PC_BITWIDTH(IS_INST_PC_BITWIDTH),\n        .IS_INST_PC_STEP(IS_INST_PC_STEP)\n    ) U_SCHEDULER_CORE (\n${ports}${schedulerDecoderConnections}\n    );\n\n    // == EX Area START ==\n    // -- EX Instances --\n    // ==   EX Area END   ==\nendmodule\n`;
+}
+
+
+// The current ORYUKDO core accepts decoded instruction bundles. Keep its real
+// token/epoch, AGU, memory, CSR, trap and prediction interfaces at the boundary.
+function generateOryukdoRTL(config: SchedulerConfig): string {
+  const source = rtlSourceSets.oryukdo['oryukdo_scheduler.sv'];
+  const end = source.indexOf('\n);');
+  if (end < 0) throw new Error('ORYUKDO scheduler module header not found');
+  const total = config.coresList.reduce((sum, core) => sum + core.count, 0);
+  const defaults: Record<string, string> = {
+    PC_W: '32', DATA_W: '32', IMM_W: String(config.instImm ?? 32), UOP_W: String(config.microopBitWidth ?? 5),
+    ARCH: String(config.instRegs ?? 32), PHY: String(config.phyRegs), DECODE: String(config.decodeWidth),
+    ENTRIES: String(config.robEntries), WINDOWS: String(config.flowWindows), WINDOW_SIZE: String(config.flowPcMaxRange ?? 16),
+    PC_STEP: '4', PATHS: String(config.coresList.length), EX_LANES: String(total),
+    PATH_LANES: `'{${config.coresList.map(core => core.count).join(',')}}`,
+    ISSUE: config.istIssueWidth === undefined ? 'EX_LANES' : String(config.istIssueWidth),
+    UPDATES: String(config.prmUpdate), RS_DEPTH: String(config.rsFifoEntries ?? 128),
+    GEN_W: '32', EPOCH_W: '32', EXTERNAL_PREDICTOR: config.predictorMode === 'external' ? "1'b1" : "1'b0",
+  };
+  let header = source.slice(0, end + 3).replace('module oryukdo_scheduler #(',
+    `module oryukdo_example_top #(\n    parameter int INST_W=${config.instBitWidth ?? 32},`);
+  for (const [name, value] of Object.entries(defaults)) {
+    const pattern = new RegExp(String.raw`(\b${name}(?:\[[^\]]+\])?\s*=\s*)(?:'\{[^}]*\}|[^,\r\n]+)`);
+    if (!pattern.test(header)) throw new Error(`ORYUKDO parameter not found: ${name}`);
+    header = header.replace(pattern, (_, prefix: string) => prefix + value);
+  }
+  // Expand grouped ANSI declarations so ports can be selected by exact name.
+  const portStart = header.indexOf(') (') + 3;
+  const paramHeader = header.slice(0, portStart);
+  const declarations: { name: string; direction: string; type: string; width: string }[] = [];
+  for (const line of header.slice(portStart, -2).split('\n')) {
+    const match = line.trim().replace(/,$/, '').match(/^(input|output)\s+(wire|logic)\s+(\[[^\]]+\]\s+)?(.+)$/);
+    if (!match) continue;
+    for (const name of match[4].split(',').map(value => value.trim()))
+      declarations.push({ name, direction: match[1], type: match[2], width: match[3]?.trim() ?? '' });
+  }
+  if (declarations.length < 60) throw new Error('ORYUKDO port list changed');
+  const generated = config.decoderSource !== 'external';
+  const decoded = new Set(['path','uop','imm','rd','rs','write','control','memory','exception','cause'].map(name => `i_decode_${name}`));
+  const internal = generated ? declarations.filter(port => decoded.has(port.name)) : [];
+  const external = declarations.filter(port => !generated || !decoded.has(port.name));
+  const newInputs = generated ? [
+    'input wire [DECODE*INST_W-1:0] i_instruction',
+    'input wire [DECODE-1:0] i_frontend_exception',
+    'input wire [DECODE*5-1:0] i_frontend_cause',
+  ] : [];
+  const ports = [...external.map(port => `${port.direction} ${port.type} ${port.width} ${port.name}`), ...newInputs];
+  header = `${paramHeader}\n    ${ports.join(',\n    ')}\n);`;
+  const memoryPath = config.coresList.findIndex(core => core.id === config.memoryCoreId);
+  const decoder = generated ? `
+    // Frontend retains ownership until o_decode_get. Store/CSR/window-end
+    // classification is supplied on i_decode_store/csr/end even in this mode.
+    // Fetch faults take priority over the generated illegal-instruction cause 2.
+${internal.map(port => `    wire ${port.width} ${port.name};`).join('\n')}
+    for (genvar lane=0; lane<DECODE; lane++) begin : GEN_DECODER
+        wire jump_flag, jump_reg_flag, branch_flag, illegal;
+        ${config.isaName ?? 'eulsukdo'}_decoder #(
+            .IS_INST_BITWIDTH(INST_W), .IS_INST_REGS(ARCH), .IS_INST_OPERANDS(2),
+            .IS_INST_IMM(IMM_W), .EX_INST_MICROOP_BITWIDTH(UOP_W), .STRUCT_EX_PATH(PATHS)
+        ) U_DECODER (
+            .inst_i(i_instruction[lane*INST_W +: INST_W]),
+            .rd_o(i_decode_rd[lane*ARCH_W +: ARCH_W]),
+            .rs_o(i_decode_rs[lane*2*ARCH_W +: 2*ARCH_W]),
+            .imm_o(i_decode_imm[lane*IMM_W +: IMM_W]),
+            .microop_o(i_decode_uop[lane*UOP_W +: UOP_W]),
+            .expath_o(i_decode_path[lane*PATH_W +: PATH_W]),
+            .newreg_alloc_o(i_decode_write[lane]), .exception_o(illegal),
+            .jump_o(jump_flag), .jump_reg_o(jump_reg_flag), .branch_o(branch_flag)
+        );
+        assign i_decode_control[lane]=jump_flag | jump_reg_flag | branch_flag;
+        assign i_decode_memory[lane]=!illegal && i_decode_path[lane*PATH_W +: PATH_W]==PATH_W'(${memoryPath});
+        assign i_decode_exception[lane]=i_frontend_exception[lane] | illegal;
+        assign i_decode_cause[lane*5 +: 5]=i_frontend_exception[lane] ? i_frontend_cause[lane*5 +: 5] : 5'd2;
+    end
+` : '    // All i_decode_* fields are supplied by the external frontend/decoder.\n';
+  return `${header}\n${decoder}\n    oryukdo_scheduler #(\n${Object.keys(defaults).map(name => `        .${name}(${name})`).join(',\n')}\n    ) U_SCHEDULER_CORE (\n${declarations.map(port => `        .${port.name}(${port.name})`).join(',\n')}\n    );\nendmodule\n`;
 }

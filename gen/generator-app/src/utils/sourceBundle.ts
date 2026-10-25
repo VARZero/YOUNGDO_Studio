@@ -98,12 +98,42 @@ export function projectTopFileName(projectName: string, platform: SchedulerConfi
 export function buildSourceFiles(topSource: string, decoderSource: string | null, isaName: string, projectName: string, settingsJson: string, platform: SchedulerConfig['platform'] = 'eulsukdo'): Record<string, string> {
   const sources = rtlSourcesFor(platform);
   const settings = JSON.parse(settingsJson);
-  if (settings.scheduler?.platform === 'oryukdo')
-    throw new Error('ORYUKDO: coming later');
+  if (settings.scheduler?.platform !== undefined && settings.scheduler.platform !== (platform ?? 'eulsukdo'))
+    throw new Error('Settings platform differs from the selected source bundle');
   const projectDir = safeProjectName(projectName);
-  const selected = 'eulsukdo';
+  const selected = platform ?? 'eulsukdo';
   return {
     [`${projectDir}/youngdo_config.json`]: settingsJson,
+    ...(selected === 'oryukdo' ? { [`${projectDir}/INTEGRATION.md`]: `# ORYUKDO Gen2 integration
+
+Top: oryukdo_example_top. This is a scheduler, not a complete CPU.
+Supply frontend, EX units, data RF, MMU and CSR executor.
+
+Generated decode consumes i_instruction. The frontend MUST also supply
+i_decode_store, i_decode_csr and i_decode_end, plus PC/epoch/valid.
+Memory classification follows the configured memory path. Keep CSR distinct
+from memory. i_frontend_exception/cause reports fetch faults, taking priority
+over generated illegal-instruction cause 2. External decode supplies every
+i_decode_* field directly. Hold lanes until o_decode_get accepts them and
+follow o_fetch_pc, o_fetch_epoch and o_flush; discard canceled EX work.
+
+Normal EX returns its original slot/generation token on i_result_* and holds
+results until o_result_accept. Memory EX instead returns token, address, data,
+mask and MMU checks through i_agu_*. Do not complete a memory operation twice.
+Write the data RF ONLY on o_wb_valid using o_wb_phy/data/uop; o_result_accept
+is queue admission, not RF write permission. Internal Ready follows RF writes.
+
+Memory ordering is always present and capacity follows frontier entries.
+Mark MMIO/side-effecting accesses with i_agu_nonspec. External store publication
+is ordered. A precise store fault requires no partially visible external write.
+CSR runs at ordered issue; external CSR logic handles trap state and interrupt
+eligibility. Interrupts are taken at confirmed window boundaries.
+
+Static prediction selects the sequential PC. External prediction waits for a
+response matching the requested PC and epoch, with NO static fallback.
+PC/data widths are 32, PC step is 4, generation/epoch widths are 32 bits.
+Keep SOURCE_VERSION.json and youngdo_config.json for reproducibility.
+` } : {}),
     [`${projectDir}/RTL/${projectTopFileName(projectName, platform)}`]: topSource,
     ...(decoderSource === null ? {} : { [`${projectDir}/RTL/${isaName}_decoder.sv`]: decoderSource }),
     [`${projectDir}/RTL/${selected}_rtl/SOURCE_VERSION.json`]: JSON.stringify(sourceVersions[selected], null, 2) + '\n',

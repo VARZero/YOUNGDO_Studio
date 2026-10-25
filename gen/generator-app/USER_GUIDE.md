@@ -1,6 +1,19 @@
 # YOUNGDO Studio 사용설명서
 
-현재 EULSUKDO Gen2를 구성합니다. 기본값은 **2d5i, IST 128개, 물리 레지스터 64개, 경로별 RS FIFO 128개**입니다. 경로 순서는 Branch 1개, ALU 3개, Memory 1개입니다. **LSQ는 선택형이며 기본 OFF**, ORYUKDO는 추후 제공입니다.
+EULSUKDO와 ORYUKDO Gen2를 구성합니다. 기본값은 **2d5i, IST 128개, 물리 레지스터 64개, 경로별 RS FIFO 128개**입니다. 경로 순서는 Branch 1개, ALU 3개, Memory 1개입니다. 을숙도의 **LSQ는 선택형이며 기본 OFF**입니다.
+
+## 오륙도 선택 시
+
+- 오륙도는 메모리 순서 처리와 복구를 항상 포함합니다. 별도 LSQ 깊이 대신 frontier 엔트리 수가 메모리 추적 용량을 정합니다. PRM 대기 슬롯은 4, 순차 반환 폭은 1, IST 뱅크는 자동입니다. 이 고정 항목에 다른 값을 넣은 JSON은 거절합니다.
+- 정적 예측은 순차 다음 PC를 사용합니다. 외부 예측 모드는 정적 예측기를 제거하고 요청 PC·epoch에 맞는 응답을 기다립니다. 응답이 없을 때 정적 예측으로 진행하지 않습니다.
+- 생성 디코더 모드는 `i_instruction`에서 ISA를 해석합니다. 메모리 명령은 선택한 EX 경로로 분류합니다. **`i_decode_store`, `i_decode_csr`, `i_decode_end`는 프런트엔드가 별도로 제공**해야 합니다. Store를 Load로 잘못 분류하지 않도록 주의하세요. CSR은 메모리 명령과 구분합니다.
+- 생성 모드의 인출 오류는 `i_frontend_exception/cause`로 전달하고, illegal instruction은 cause 2가 됩니다. 인출 오류가 우선합니다. 외부 디코더 모드는 모든 `i_decode_*`를 직접 제공합니다.
+- PC·epoch·valid와 명령은 `o_decode_get` 수락까지 유지합니다. `o_fetch_pc`, `o_fetch_epoch`, `o_flush`를 따라 프런트엔드의 이전 응답과 취소된 EX 작업을 폐기합니다.
+- 일반 EX는 원래 token을 `i_result_*`로 반환하고, 메모리 EX는 주소·데이터·MMU 결과를 `i_agu_*`로 반환합니다. 메모리 명령을 일반 결과로 중복 완료시키지 않습니다. 실제 RF 쓰기는 `o_wb_valid/phy/data/uop`를 사용하며 `o_result_accept`는 쓰기 허가가 아닙니다.
+- EX·RF·MMU·CSR 실행기·프런트엔드 구현은 외부에 연결합니다. MMIO는 `i_agu_nonspec`으로 표시합니다. 인터럽트는 확정 윈도우 경계에서 처리하며 외부 CSR 장치가 trap 상태와 인터럽트 조건을 갱신합니다.
+- 최상위는 `oryukdo_example_top`, 소스 폴더는 `RTL/oryukdo_rtl`입니다. PC/데이터는 32비트, PC 증분은 4, generation/epoch는 32비트입니다. 생성 ZIP은 완성 CPU가 아닙니다.
+
+아래의 기존 `i_nel_decode_*`, Flow Window + PC 완료 및 선택형 두 FIFO LSQ 설명은 을숙도에 해당합니다. 오륙도는 화면의 오륙도 연결 안내와 위 계약을 사용하세요.
 
 ## 실행과 화면
 

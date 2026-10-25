@@ -30,7 +30,7 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
-      - name: Verify pinned EULSUKDO Gen2 snapshot
+      - name: Verify pinned Gen2 platform snapshots
         run: python3 gen/scripts/sync_platforms.py
       - uses: actions/setup-node@v4
         with:
@@ -45,7 +45,7 @@ jobs:
         working-directory: gen/generator-app
       - name: Install RTL linter
         run: command -v verilator || (sudo apt-get update && sudo apt-get install -y verilator)
-      - name: Verify generated EULSUKDO wrappers
+      - name: Verify both platforms and generated ORYUKDO behavior
         run: npm run verify:rtl
         working-directory: gen/generator-app
       - name: Install headless browser

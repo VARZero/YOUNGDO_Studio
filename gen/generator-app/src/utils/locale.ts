@@ -1,6 +1,28 @@
 export type Language = 'ko' | 'en';
 
 const korean: Record<string, string> = {
+  'Configure the scheduler, ISA and EX paths.': '스케줄러와 ISA, EX 실행 경로를 설정하세요.',
+  'Token and epoch recovery': 'token과 epoch 기반 복구',
+  'Fetch + predictor': '인출 제어 + 예측기', 'EX lanes': 'EX 레인', 'Issue lanes': '발행 레인',
+  'external only': '외부 예측기만 사용',
+  'External interface; no fallback': '외부 예측기 · 정적 fallback 없음',
+  'Static mode predicts the next instruction. External mode waits for the custom predictor; no static fallback.': '정적 모드는 다음 순차 명령을 예측합니다. 외부 모드는 커스텀 예측기 응답을 기다리며 정적 fallback은 없습니다.',
+  'Slot/generation tokens, committed rename map, flush and ordered exceptions.': 'slot/generation token, 확정 rename 매핑, flush와 순서가 보장된 예외를 포함합니다.',
+  'token tagged issue': 'token 포함 발행',
+  'token + generation': 'token + generation',
+  'token / accept / flush': 'token / 수락 / flush',
+  'EX returns the original token and honors acceptance and flush.': 'EX는 원래 token을 반환하고 수락 신호와 flush를 따라야 합니다.',
+  'Always enabled': '항상 사용',
+  'Always enabled: local forwarding and ordered external publication.': '내부 Store 전달과 순서가 보장된 외부 공개를 항상 사용합니다.',
+  'Forwarding / ordered publish': 'Store 전달 / 순차 공개',
+  'EX / AGU → memory → ordered publication': 'EX / AGU → 메모리 → 순차 공개',
+  'Memory EX returns token, address and data through AGU. The scheduler publishes stores in order.': '메모리 EX는 AGU로 token·주소·데이터를 반환합니다. 스케줄러가 Store를 순서대로 공개합니다.',
+  'Supply i_decode_* with PC, epoch and classification; hold each lane until o_decode_get accepts it.': 'i_decode_*로 PC·epoch·명령 분류를 전달하고 o_decode_get이 수락할 때까지 유지하세요.',
+  'ORYUKDO frontend supplies PC/epoch and honors o_fetch_pc, o_fetch_epoch and o_flush.': '오륙도 프런트엔드는 PC·epoch를 제공하며 o_fetch_pc, o_fetch_epoch와 o_flush를 따라야 합니다.',
+  'Generated decode uses i_instruction. Frontend still supplies Store/CSR/window-end flags and fetch faults; memory classification follows the selected path.': '생성 디코더 입력은 i_instruction입니다. Store/CSR/윈도우 끝과 인출 오류는 프런트엔드가 제공하며 메모리 분류는 선택한 경로를 따릅니다.',
+  'Instruction PC': '명령 PC', 'Fetch epoch': '인출 epoch', 'Valid instruction prefix': '연속 valid 명령 묶음',
+  'Control instruction': '제어 명령', 'Memory instruction': '메모리 명령',
+  'Store instruction': 'Store 명령', 'CSR instruction': 'CSR 명령', 'Window end': '윈도우 끝',
   'Coming later': '추후 제공',
   'Current Gen2 scheduler. Configure ISA and EX paths.': '현재 Gen2 스케줄러로 ISA·EX를 구성합니다.',
   'Configure the current EULSUKDO scheduler, ISA and EX paths.': '현재 을숙도 스케줄러의 구조, ISA와 EX 실행 경로를 설정하세요.',
@@ -172,6 +194,10 @@ export function tr(language: Language, english: string): string {
 }
 
 const englishErrors: Record<string, string> = {
+  '오륙도 PHY는 ISA 레지스터 수 + 디코드 폭 이상이어야 합니다.': 'ORYUKDO requires PHY >= architectural registers + decode width.',
+  '오륙도는 PRM 대기 슬롯 4, 반환 폭 1, 자동 IST 뱅크를 사용합니다.': 'ORYUKDO uses four PRM wait slots, one return lane and automatic IST banks.',
+  '오륙도 메모리 순서는 항상 켜지며 용량은 frontier 엔트리 수를 따릅니다.': 'ORYUKDO memory ordering is always on; capacity follows frontier entries.',
+  '오륙도 생성 디코더의 메모리 EX 경로를 선택하세요.': 'Select a memory EX path for ORYUKDO generated decode.',
   '오륙도는 추후 제공 예정입니다.': 'ORYUKDO is coming later.',
   'LSQ 사용 여부는 불리언이어야 합니다.': 'LSQ enable must be a boolean.',
   'LSQ 엔트리 수는 1 이상의 정수여야 합니다.': 'LSQ entries must be a positive integer.',
