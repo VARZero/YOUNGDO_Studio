@@ -1,6 +1,12 @@
 export type Language = 'ko' | 'en';
 
 const korean: Record<string, string> = {
+  'LSQ implementation': 'LSQ 구현 선택',
+  'LSQ implementation shortcut': 'LSQ 구현 빠른 선택',
+  'Built-in LSQ': '내장 LSQ',
+  'User LSQ RTL': '사용자 LSQ RTL',
+  'Keep the built-in LSQ or replace it with your RTL.': '기존 내장 LSQ를 유지하거나 사용자 RTL로 교체합니다.',
+  'Edit RTL/custom_lsq/oryukdo_custom_lsq.sv in the ZIP. The starter preserves built-in behavior until replaced.': 'ZIP의 RTL/custom_lsq/oryukdo_custom_lsq.sv를 수정하세요. 시작 파일은 교체 전까지 내장 동작을 그대로 사용합니다.',
   'Configure the scheduler, ISA and EX paths.': '스케줄러와 ISA, EX 실행 경로를 설정하세요.',
   'Token and epoch recovery': 'token과 epoch 기반 복구',
   'Fetch + predictor': '인출 제어 + 예측기', 'EX lanes': 'EX 레인', 'Issue lanes': '발행 레인',
@@ -194,6 +200,10 @@ export function tr(language: Language, english: string): string {
 }
 
 const englishErrors: Record<string, string> = {
+  'LSQ 구현은 내장 또는 사용자 RTL을 선택하세요.': 'Choose built-in or custom LSQ implementation.',
+  '사용자 LSQ RTL 교체는 오륙도에서 지원합니다.': 'Custom LSQ RTL replacement is supported on ORYUKDO.',
+  '오륙도는 내장 LSQ 또는 사용자 LSQ가 필요합니다. lsqMode로 구현을 선택하세요.': 'ORYUKDO needs a built-in or user LSQ. Select the implementation with lsqMode.',
+  '내장 LSQ 용량은 frontier를 따릅니다. 사용자 LSQ 용량은 해당 RTL에서 설정하고 lsqEntries는 생략하세요.': 'Built-in LSQ capacity follows the frontier. Set custom capacity in your RTL and omit lsqEntries.',
   '오륙도 PHY는 ISA 레지스터 수 + 디코드 폭 이상이어야 합니다.': 'ORYUKDO requires PHY >= architectural registers + decode width.',
   '오륙도는 PRM 대기 슬롯 4, 반환 폭 1, 자동 IST 뱅크를 사용합니다.': 'ORYUKDO uses four PRM wait slots, one return lane and automatic IST banks.',
   '오륙도 메모리 순서는 항상 켜지며 용량은 frontier 엔트리 수를 따릅니다.': 'ORYUKDO memory ordering is always on; capacity follows frontier entries.',

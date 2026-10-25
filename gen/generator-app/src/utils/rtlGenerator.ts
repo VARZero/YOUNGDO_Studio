@@ -24,6 +24,7 @@ export interface SchedulerConfig {
   flowWindows: number;
   flowPcMaxRange?: number;
   enableMemoryOrder?: boolean;
+  lsqMode?: 'builtin' | 'custom';
   lsqEntries?: number;
   memoryCoreId?: string;
   isaName?: string;
@@ -42,6 +43,10 @@ export function rtlSourcesFor(platform: SchedulerConfig['platform']): Record<str
 
 export function validateSchedulerConfig(config: SchedulerConfig): string | null {
   const oryukdo = config.platform === 'oryukdo';
+  if (config.lsqMode !== undefined && !['builtin', 'custom'].includes(config.lsqMode))
+    return 'LSQ 구현은 내장 또는 사용자 RTL을 선택하세요.';
+  if (config.lsqMode === 'custom' && !oryukdo)
+    return '사용자 LSQ RTL 교체는 오륙도에서 지원합니다.';
   if (config.enableMemoryOrder !== undefined && typeof config.enableMemoryOrder !== 'boolean')
     return 'LSQ 사용 여부는 불리언이어야 합니다.';
   if (config.platform !== undefined && config.platform !== 'eulsukdo' && config.platform !== 'oryukdo')
@@ -73,8 +78,10 @@ export function validateSchedulerConfig(config: SchedulerConfig): string | null 
       return '오륙도 PHY는 ISA 레지스터 수 + 디코드 폭 이상이어야 합니다.';
     if (config.prmBuffer !== 4 || config.unallocatePhyreg !== 1 || config.istBanks !== undefined)
       return '오륙도는 PRM 대기 슬롯 4, 반환 폭 1, 자동 IST 뱅크를 사용합니다.';
-    if (config.enableMemoryOrder === false || (config.lsqEntries !== undefined && config.lsqEntries !== config.robEntries))
-      return '오륙도 메모리 순서는 항상 켜지며 용량은 frontier 엔트리 수를 따릅니다.';
+    if (config.enableMemoryOrder === false)
+      return '오륙도는 내장 LSQ 또는 사용자 LSQ가 필요합니다. lsqMode로 구현을 선택하세요.';
+    if (config.lsqEntries !== undefined && (config.lsqMode === 'custom' || config.lsqEntries !== config.robEntries))
+      return '내장 LSQ 용량은 frontier를 따릅니다. 사용자 LSQ 용량은 해당 RTL에서 설정하고 lsqEntries는 생략하세요.';
     if (config.decoderSource !== 'external' && config.coresList.filter(core => core.id === config.memoryCoreId).length !== 1)
       return '오륙도 생성 디코더의 메모리 EX 경로를 선택하세요.';
   }
@@ -197,6 +204,7 @@ function generateOryukdoRTL(config: SchedulerConfig): string {
     ISSUE: config.istIssueWidth === undefined ? 'EX_LANES' : String(config.istIssueWidth),
     UPDATES: String(config.prmUpdate), RS_DEPTH: String(config.rsFifoEntries ?? 128),
     GEN_W: '32', EPOCH_W: '32', EXTERNAL_PREDICTOR: config.predictorMode === 'external' ? "1'b1" : "1'b0",
+    CUSTOM_LSQ: config.lsqMode === 'custom' ? "1'b1" : "1'b0",
   };
   let header = source.slice(0, end + 3).replace('module oryukdo_scheduler #(',
     `module oryukdo_example_top #(\n    parameter int INST_W=${config.instBitWidth ?? 32},`);

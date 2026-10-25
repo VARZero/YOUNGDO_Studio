@@ -36,7 +36,7 @@ export function StructureParameters({ language, config, onChange }: {
   const available = parameters.filter(parameter => !ory || parameter.key !== 'unallocatePhyreg');
   return <details className="studio-structure-parameters">
     <summary>{ko ? '상세 구조 파라미터 · PRM / FCL' : 'Detailed structure parameters · PRM / FCL'}</summary>
-    {ory && <p>{ko ? '오륙도는 PRM 대기 슬롯 4와 단일 순차 반환을 사용합니다. IST 뱅크는 자동이며 메모리 용량은 frontier와 같습니다.' : 'ORYUKDO uses four PRM wait slots and single ordered returns. IST banks are automatic; memory capacity follows the frontier.'}</p>}
+    {ory && <p>{ko ? '오륙도는 PRM 대기 슬롯 4와 단일 순차 반환을 사용합니다. IST 뱅크는 자동입니다. 내장 LSQ 용량은 frontier와 같고, 사용자 LSQ 용량은 해당 RTL에서 정합니다.' : 'ORYUKDO uses four PRM wait slots and single ordered returns. IST banks are automatic. Built-in LSQ capacity follows the frontier; user LSQ capacity is defined in your RTL.'}</p>}
     <p>{ko ? '값은 설정 JSON과 생성 RTL에 함께 반영됩니다. 기본값 복원은 아래 다섯 항목만 변경합니다.'
       : 'Values are saved in settings JSON and generated RTL. Reset changes only the five fields below.'}</p>
     <div className="studio-parameter-grid">{available.map(parameter => <label className="studio-parameter-field" key={parameter.key}>

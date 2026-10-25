@@ -44,14 +44,14 @@ const sourceVersions = ${JSON.stringify(platformSources.sourceVersions)};`,
 platformSources = await loadUtility('platformSources.ts');
 const { generateRTL, rtlSourcesFor, validateSchedulerConfig, sourceVersions } = await loadUtility('rtlGenerator.ts');
 const { generateDecoderRTL } = await loadUtility('decoderGenerator.ts');
-const { buildSourceBundle, projectArchiveName } = await loadUtility('sourceBundle.ts');
+const { buildSourceBundle, projectArchiveName, generateCustomLsqTemplate } = await loadUtility('sourceBundle.ts');
 const example = JSON.parse(fs.readFileSync(path.join(appRoot, 'examples/rv32i_4decode_5issue.json'), 'utf8'));
 try {
   const base = { ...example.scheduler, ...example.decoder, platform: 'eulsukdo', enableMemoryOrder: false };
   for (const extra of [{ platform: 'invalid' }, { enableMemoryOrder: true },
     { enableMemoryOrder: true, memoryCoreId: 'missing' },
     { enableMemoryOrder: true, memoryCoreId: '3', lsqEntries: 3 },
-    { enableMemoryOrder: 'true' }, { lsqEntries: 0 }, { lsqEntries: 2.5 }, { lsqEntries: null }, { lsqEntries: '32' },
+    { enableMemoryOrder: 'true' }, { lsqMode: 'custom' }, { lsqMode: 'off' }, { lsqEntries: 0 }, { lsqEntries: 2.5 }, { lsqEntries: null }, { lsqEntries: '32' },
     { istBanks: 3 }, { rsFifoEntries: 0 }, { istIssueWidth: 0 }, { istBanks: null }, { rsFifoEntries: '8' },
     { prmBuffer: 0 }, { prmUpdate: 1.5 }, { unallocatePhyreg: -1 }, { flowWindows: 1 },
     { flowPcMaxRange: 0 }, { flowPcMaxRange: null }]) {
@@ -144,7 +144,7 @@ try {
 
   const oryBase = { ...base, platform: 'oryukdo', robEntries: 32, decodeWidth: 2,
     prmBuffer: 4, unallocatePhyreg: 1, enableMemoryOrder: true, memoryCoreId: '3' };
-  for (const extra of [{ enableMemoryOrder: false }, { prmBuffer: 8 }, { unallocatePhyreg: 4 },
+  for (const extra of [{ enableMemoryOrder: false }, { prmBuffer: 8 }, { unallocatePhyreg: 4 }, { lsqMode: 'off' }, { lsqMode: 'custom', lsqEntries: 32 },
     { istBanks: 4 }, { lsqEntries: 7 }, { phyRegs: 33 }, { memoryCoreId: 'missing' }]) {
     assert.ok(validateSchedulerConfig({ ...oryBase, ...extra }));
     assert.throws(() => generateRTL({ ...oryBase, ...extra }));
@@ -161,6 +161,8 @@ try {
     assert.equal(unexpected.length, 0, `${label}: unexpected warnings`);
   }
   for (const [profile, extra] of [
+    ['ory_custom_lsq', { lsqMode: 'custom' }],
+    ['ory_custom_lsq_external', { lsqMode: 'custom', decoderSource: 'external', predictorMode: 'external' }],
     ['ory_static', {}], ['ory_predictor', { predictorMode: 'external' }],
     ['ory_external_decode', { decoderSource: 'external' }],
     ['ory_external_both', { decoderSource: 'external', predictorMode: 'external' }],
@@ -182,6 +184,8 @@ try {
     }
     assert.ok(top.includes(`EXTERNAL_PREDICTOR=1'b${config.predictorMode === 'external' ? 1 : 0}`));
     assert.ok(top.includes('.EXTERNAL_PREDICTOR(EXTERNAL_PREDICTOR)'));
+    assert.ok(top.includes(`CUSTOM_LSQ=1'b${config.lsqMode === 'custom' ? 1 : 0}`));
+    assert.ok(top.includes('.CUSTOM_LSQ(CUSTOM_LSQ)'));
     assert.equal(top.includes('GEN_DECODER'), config.decoderSource !== 'external');
     if (config.decoderSource !== 'external') {
       assert.ok(top.includes(`==PATH_W'(${config.coresList.findIndex(core => core.id === config.memoryCoreId)})`));
@@ -197,9 +201,12 @@ try {
     assert.ok(zipText.includes('RTL/oryukdo_rtl/oryukdo_dependency_mapper.sv'));
     assert.ok(!zipText.includes('RTL/eulsukdo_rtl/'));
     assert.equal(zipText.includes('RTL/rv32i_decoder.sv'), config.decoderSource !== 'external');
+    assert.equal(zipText.includes('RTL/custom_lsq/oryukdo_custom_lsq.sv'), config.lsqMode === 'custom');
+    if (config.lsqMode === 'custom') assert.ok(zipText.includes(generateCustomLsqTemplate()));
     fs.writeFileSync(path.join(reportDir, `${profile}.zip`), archive);
     const target = path.join(dir, profile);fs.mkdirSync(target);
-    const paths = Object.entries({ 'top.sv': top, 'decoder.sv': decoder, ...rtl }).map(([name, data]) => {
+    const paths = Object.entries({ 'top.sv': top, 'decoder.sv': decoder, ...rtl,
+      ...(config.lsqMode === 'custom' ? {'custom.sv': generateCustomLsqTemplate()} : {}) }).map(([name, data]) => {
       const filename=path.join(target,name);fs.writeFileSync(filename,data);return toolPath(filename);
     });
     runVerilator(profile, ['--lint-only','-Wno-WIDTH','-Wno-fatal','--unroll-count','256',
@@ -253,23 +260,29 @@ try {
   // external-decode wrapper, including both predictor modes. Only the module
   // name and paths to its nested core assertions differ from the upstream TB.
   const fixture = fs.readFileSync(path.join(appRoot,'scripts/fixtures/tb_oryukdo_scheduler.sv'),'utf8');
-  for (const mode of [0,1]) {
-    const target=path.join(dir,`ory_functional_${mode}`);fs.mkdirSync(target);
-    const top=generateRTL({ ...oryBase, decoderSource:'external', predictorMode:mode?'external':'static' });
-    const bench=fixture.replace('    oryukdo_scheduler #(', '    oryukdo_example_top #(').replaceAll('dut.', 'dut.U_SCHEDULER_CORE.');
+  for (const [mode, custom, starter] of [[0,0,false],[1,0,false],[0,1,false],[1,1,false],[0,1,true]]) {
+    const label=`ory_functional_${mode}_${custom}_${starter?'starter':'stall'}`;
+    const target=path.join(dir,label);fs.mkdirSync(target);
+    const top=generateRTL({ ...oryBase, decoderSource:'external', predictorMode:mode?'external':'static', lsqMode:custom?'custom':'builtin' });
+    let bench=fixture.replace('    oryukdo_scheduler #(', '    oryukdo_example_top #(').replaceAll('dut.', 'dut.U_SCHEDULER_CORE.');
+    if (starter) {
+      bench=bench.slice(0,bench.indexOf('// Test-only user implementation;')) + generateCustomLsqTemplate();
+      bench=bench.replace(/    generate if\(CUSTOM_LSQ\) begin : CUSTOM_TEST[\s\S]*?    end endgenerate/,
+        '    if(1) begin : CUSTOM_TEST\n      task automatic run; endtask\n    end');
+    }
     const paths=Object.entries({ 'top.sv':top, 'bench.sv':bench, ...rtlSourcesFor('oryukdo') }).map(([name,data])=>{
       const filename=path.join(target,name);fs.writeFileSync(filename,data);return toolPath(filename);
     });
     const obj=path.join(target,'obj');
-    runVerilator(`ory_functional_${mode}_build`, ['--binary','--timing','--assert','-Wno-WIDTH','-Wno-fatal',
+    runVerilator(`${label}_build`, ['--binary','--timing','--assert','-Wno-WIDTH','-Wno-fatal',
       '--unroll-count','256','-j','2','--Mdir',toolPath(obj),'--top-module','tb_oryukdo_scheduler',
-      `-GEXTERNAL_PREDICTOR=${mode}`,...paths]);
+      `-GEXTERNAL_PREDICTOR=${mode}`,`-GCUSTOM_LSQ=${custom}`,...paths]);
     const exe=toolPath(path.join(obj,'Vtb_oryukdo_scheduler'));
     const run=spawnSync(wsl?'wsl.exe':exe,wsl?['--exec',exe]:[],{encoding:'utf8'});
-    fs.writeFileSync(path.join(reportDir,`ory_functional_${mode}.log`),`${run.stdout}${run.stderr}`);
+    fs.writeFileSync(path.join(reportDir,`${label}.log`),`${run.stdout}${run.stderr}`);
     assert.equal(run.status,0,run.stdout+run.stderr);
     assert.ok(run.stdout.includes('tb_oryukdo_scheduler PASS'));
-    console.log(`ory_functional_${mode}: generated wrapper recovery/window/memory regression passed`);
+    console.log(`${label}: generated wrapper recovery/window/memory regression passed`);
   }
 
   console.log('Feature guards, parameter forwarding, source hashes and ZIP contents passed');

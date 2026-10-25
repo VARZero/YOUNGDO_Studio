@@ -2,9 +2,11 @@
 
 EULSUKDO와 ORYUKDO Gen2의 구조·ISA·디코더·EX 경로를 설정하고 RTL ZIP을 만드는 웹 생성기입니다. 을숙도는 **두 FIFO 방식의 선택형 LSQ**를 지원하며 기본 OFF입니다. 오륙도는 복구 가능한 rename, 정확한 예외, 윈도우 경계 인터럽트, 내부 Store 전달과 순차 외부 공개를 포함합니다.
 
-소스는 각 저장소의 `gen2/src/RTL`이며 [소스 버전](gen/platforms/versions.json)에 커밋과 파일별 SHA-256을 기록합니다. 을숙도 `9b0e1c6b792b132f05844c3113ff8dfde712cd77`의 9개 파일은 유지하고, 오륙도 `844267fe25b0ab82f16dfcf4db87005c560eba01`의 17개 파일을 수정 없이 추가했습니다. 선택한 플랫폼의 소스와 버전만 ZIP에 들어갑니다.
+소스는 각 저장소의 `gen2/src/RTL`이며 [소스 버전](gen/platforms/versions.json)에 커밋과 파일별 SHA-256을 기록합니다. 을숙도 `9b0e1c6b792b132f05844c3113ff8dfde712cd77`의 9개 파일은 유지하고, 오륙도 `2918338440252904a53acdcbfea30a6e484bccbc`의 17개 파일을 수정 없이 추가했습니다. 선택한 플랫폼의 소스와 버전만 ZIP에 들어갑니다.
 
 오륙도의 최상위는 `oryukdo_example_top`입니다. 정적 예측은 다음 순차 PC를 사용하고, 외부 모드는 커스텀 예측기 응답을 기다리며 정적 fallback은 없습니다. 생성 디코더 모드의 입력은 `i_instruction`이며, **Store/CSR 구분·윈도우 끝·인출 오류는 프런트엔드에서 제공**합니다. 외부 디코더 모드에서는 모든 `i_decode_*`를 직접 제공합니다. EX, 데이터 레지스터 파일, MMU, CSR 실행기와 프런트엔드는 외부 구성요소입니다.
+
+오륙도의 **내장 LSQ는 기본값으로 유지**합니다. `LSQ 구현 선택 → 사용자 LSQ RTL` 또는 JSON의 `lsqMode="custom"`을 선택하면 `CUSTOM_LSQ=1`과 `RTL/custom_lsq/oryukdo_custom_lsq.sv`를 내보냅니다. 시작 파일 내부를 수정하거나 자신이 만든 모듈을 연결하세요. 시작 파일은 교체 전까지 내장 동작을 사용합니다. 접수 정체·완료·Store 공개·복구 계약은 ZIP의 `INTEGRATION.md`에 포함됩니다.
 
 ```sh
 cd gen/generator-app
@@ -16,7 +18,7 @@ npm run build
 npm run verify:rtl
 ```
 
-Windows의 RTL 검증은 WSL의 Verilator를 자동 사용합니다. Linux에서는 PATH의 Verilator를 사용합니다. `verify:rtl`은 을숙도 10개·오륙도 6개 구성의 연결, 파라미터, ZIP 및 소스 해시를 검사합니다. 오륙도는 생성 디코더의 분류·예외 우선순위를 시뮬레이션하고, 생성된 외부 디코더 연결 모듈을 통해 정적·외부 예측기 두 모드에서 원본의 복구·메모리·CSR·Ready 회귀 검사를 실행합니다. 원본의 `UNOPTFLAT` 경고는 `gen/generator-app/verification/`에 보존하며, 그 외 활성화된 경고 및 오류는 검사를 실패시킵니다. 사용자 EX와 보드 통합 및 클럭 검증은 별도입니다.
+Windows의 RTL 검증은 WSL의 Verilator를 자동 사용합니다. Linux에서는 PATH의 Verilator를 사용합니다. `verify:rtl`은 을숙도 10개·오륙도 8개 구성의 연결, 파라미터, ZIP 및 소스 해시를 검사합니다. 오륙도는 생성 디코더의 분류·예외 우선순위와 5개 스케줄러 조합을 시뮬레이션합니다. 내장/사용자 LSQ × 정적/외부 예측기 4개 조합 및 내보낸 시작 파일의 실제 동작을 포함하며, 복구·메모리·CSR·Ready 및 사용자 LSQ 입력/AGU 정체를 검증합니다. 원본의 `UNOPTFLAT` 경고는 `gen/generator-app/verification/`에 보존하며, 그 외 활성화된 경고 및 오류는 검사를 실패시킵니다. 사용자 EX와 보드 통합 및 클럭 검증은 별도입니다. 기존 70 MHz 수치는 `844267f`의 기록이며 이번 옵션 추가 후 새로 배치·배선한 수치가 아닙니다.
 
 소스 교체는 [플랫폼 안내](gen/platforms/README.md), 화면 사용법은 [사용설명서](gen/generator-app/USER_GUIDE.md)를 참고하세요. GitHub Pages 빌드는 동봉된 커밋을 사용하므로 원격의 예전 `main`으로 되돌아가지 않습니다. 새 소스 반영은 명시적인 동기화와 검증 후 진행합니다.
 

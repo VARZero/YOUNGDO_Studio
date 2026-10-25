@@ -77,7 +77,7 @@ export const sourceVersions = {
   },
   "oryukdo": {
     "repository": "https://github.com/VARZero/ORYUKDO.git",
-    "commit": "844267fe25b0ab82f16dfcf4db87005c560eba01",
+    "commit": "2918338440252904a53acdcbfea30a6e484bccbc",
     "path": "gen2/src/RTL",
     "sha256": {
       "_element_logics.sv": "b330cb3f3af0bc1e0650f40ea11b5d407378718bc6a945f669c1228f1fa8df6d",
@@ -93,7 +93,7 @@ export const sourceVersions = {
       "oryukdo_new_entry_logic.sv": "304683edc265b55bda9097eb8818d10b6fd433fb97e70b905abcd36bbc46263f",
       "oryukdo_rename.sv": "33a292af238b1fcc2deedd7c1748349127c3cf270afb1c080a87772df45314bc",
       "oryukdo_result_selector.sv": "54e485819bfaa985693e9ef94ea13b22c20ad8c8d60cc4c604c90705f151be2d",
-      "oryukdo_scheduler.sv": "2992773531cdc18e60180d7ccf56e6121c87f436dc9592f6dfafcddd0af1acf4",
+      "oryukdo_scheduler.sv": "eed7932e0a98ae6a0d2a7499fdca9d1bb2071453c3de971b11dc4b83bf8a6617",
       "physical_register_mapper.sv": "05f8efbe29c7378fbb6d5e25c6ed6e425d3d5aeba9dbb0cc85c733fa77b41d06",
       "ready_station.sv": "d33c25b208cdcc0f24d91e951ac51608d30e81b0c305c3fc9e0cdc73915ab059",
       "write_back_concatenation.sv": "9a62e2fdcdd6723a241d5d7e1264be3053427fbf47efa18dc878f6cd6fb41b68"

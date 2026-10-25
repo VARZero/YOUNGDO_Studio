@@ -4,7 +4,9 @@ EULSUKDO와 ORYUKDO Gen2를 구성합니다. 기본값은 **2d5i, IST 128개, �
 
 ## 오륙도 선택 시
 
-- 오륙도는 메모리 순서 처리와 복구를 항상 포함합니다. 별도 LSQ 깊이 대신 frontier 엔트리 수가 메모리 추적 용량을 정합니다. PRM 대기 슬롯은 4, 순차 반환 폭은 1, IST 뱅크는 자동입니다. 이 고정 항목에 다른 값을 넣은 JSON은 거절합니다.
+- 오륙도는 **내장 LSQ**가 기본값입니다. **LSQ 구현 선택 → 사용자 LSQ RTL**로 교체할 수 있습니다. 내장 용량은 frontier 엔트리 수를 따르며 사용자 용량은 해당 RTL에서 정합니다. PRM 대기 슬롯은 4, 순차 반환 폭은 1, IST 뱅크는 자동입니다.
+- 사용자 모드는 JSON의 `scheduler.lsqMode="custom"`에 해당하며 `CUSTOM_LSQ=1`을 생성합니다. ZIP의 `RTL/custom_lsq/oryukdo_custom_lsq.sv` 내부를 수정하거나 자신이 만든 모듈을 연결하세요. 시작 파일은 기존 내장 엔진을 호출하므로 교체 전까지 동작을 유지합니다. 내장 선택 또는 `lsqMode` 생략 시에는 이 파일 없이 기존 내장 구현만 사용합니다.
+- 사용자 LSQ는 단순 순서 FIFO뿐 아니라 AGU 접수, 완료, Store 외부 공개, MMIO 순서와 flush 후 버스 응답 처리까지 맡습니다. 입력 미리보기 `i_reserve`와 `o_allocate_ready`로 정체를 걸고 실제 `i_allocate`에서만 저장합니다. 상세 계약은 ZIP의 `INTEGRATION.md`를 참고하세요. `enableMemoryOrder=false`는 오륙도의 안전한 우회 기능이 아니므로 지원하지 않습니다. 사용자 모드에서는 `lsqEntries`를 생략합니다.
 - 정적 예측은 순차 다음 PC를 사용합니다. 외부 예측 모드는 정적 예측기를 제거하고 요청 PC·epoch에 맞는 응답을 기다립니다. 응답이 없을 때 정적 예측으로 진행하지 않습니다.
 - 생성 디코더 모드는 `i_instruction`에서 ISA를 해석합니다. 메모리 명령은 선택한 EX 경로로 분류합니다. **`i_decode_store`, `i_decode_csr`, `i_decode_end`는 프런트엔드가 별도로 제공**해야 합니다. Store를 Load로 잘못 분류하지 않도록 주의하세요. CSR은 메모리 명령과 구분합니다.
 - 생성 모드의 인출 오류는 `i_frontend_exception/cause`로 전달하고, illegal instruction은 cause 2가 됩니다. 인출 오류가 우선합니다. 외부 디코더 모드는 모든 `i_decode_*`를 직접 제공합니다.
