@@ -1,8 +1,13 @@
 # YOUNGDO Studio / 영도 스튜디오
 
+2026-10-29: 오륙도 frontier의 분기·인터럽트 경계 실행 허가와 XSim 접수 신호
+수정을 반영했습니다. 일반 Studio와 `auto_create/`의 ZIP에 같은 수정본이 포함됩니다.
+원인과 검증 범위는 [업스트림 수정 기록](https://github.com/VARZero/ORYUKDO/blob/84e07b64b525b9d243b74641a1e59bb1337f4f52/docs/FRONTIER_BOUNDARY_FIX.md)을 참고하세요.
+공개 포트·설정 형식은 유지하며, 이번 수정의 FPGA 배치·배선은 재검증하지 않았습니다.
+
 EULSUKDO와 ORYUKDO Gen2의 구조·ISA·디코더·EX 경로를 설정하고 RTL ZIP을 만드는 웹 생성기입니다. 을숙도는 **두 FIFO 방식의 선택형 LSQ**를 지원하며 기본 OFF입니다. 오륙도는 복구 가능한 rename, 정확한 예외, 윈도우 경계 인터럽트, 내부 Store 전달과 순차 외부 공개를 포함합니다.
 
-소스는 각 저장소의 `gen2/src/RTL`이며 [소스 버전](gen/platforms/versions.json)에 커밋과 파일별 SHA-256을 기록합니다. 을숙도 `9b0e1c6b792b132f05844c3113ff8dfde712cd77`의 9개 파일은 유지하고, 오륙도 `2918338440252904a53acdcbfea30a6e484bccbc`의 17개 파일을 수정 없이 추가했습니다. 선택한 플랫폼의 소스와 버전만 ZIP에 들어갑니다.
+소스는 각 저장소의 `gen2/src/RTL`이며 [소스 버전](gen/platforms/versions.json)에 커밋과 파일별 SHA-256을 기록합니다. 을숙도 `9b0e1c6b792b132f05844c3113ff8dfde712cd77`의 9개 파일은 유지하고, 오륙도 `84e07b64b525b9d243b74641a1e59bb1337f4f52`의 17개 파일을 수정 없이 추가했습니다. 선택한 플랫폼의 소스와 버전만 ZIP에 들어갑니다.
 
 오륙도의 최상위는 `oryukdo_example_top`입니다. 정적 예측은 다음 순차 PC를 사용하고, 외부 모드는 커스텀 예측기 응답을 기다리며 정적 fallback은 없습니다. 생성 디코더 모드의 입력은 `i_instruction`이며, **Store/CSR 구분·윈도우 끝·인출 오류는 프런트엔드에서 제공**합니다. 외부 디코더 모드에서는 모든 `i_decode_*`를 직접 제공합니다. EX, 데이터 레지스터 파일, MMU, CSR 실행기와 프런트엔드는 외부 구성요소입니다.
 

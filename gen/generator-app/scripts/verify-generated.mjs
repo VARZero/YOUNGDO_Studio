@@ -256,6 +256,30 @@ try {
     console.log('ory_decoder_bridge: ISA, classification, illegal instruction and fetch-fault priority passed');
   }
 
+  // Execute the upstream boundary regression against the exact shipped RTL.
+  // Keep normal serial progress as well as redirect/interrupt suppression covered.
+  {
+    const top='tb_oryukdo_frontier';
+    const bench=fs.readFileSync(path.join(appRoot,`scripts/fixtures/${top}.sv`),'utf8');
+    for (const depth of [4,3]) for (const test of [0,1]) {
+      const label=`ory_frontier_${depth}_${test}`;
+      const target=path.join(dir,label);fs.mkdirSync(target);
+      const paths=Object.entries({'bench.sv':bench,
+        'oryukdo_frontier.sv':rtlSourcesFor('oryukdo')['oryukdo_frontier.sv']}).map(([name,data])=>{
+        const filename=path.join(target,name);fs.writeFileSync(filename,data);return toolPath(filename);
+      });
+      const obj=path.join(target,'obj');
+      runVerilator(`${label}_build`,['--binary','--timing','--assert','-Wno-fatal',
+        '-j','2','--Mdir',toolPath(obj),'--top-module',top,`-GDEPTH=${depth}`,`-GTEST=${test}`,...paths]);
+      const exe=toolPath(path.join(obj,`V${top}`));
+      const run=spawnSync(wsl?'wsl.exe':exe,wsl?['--exec',exe]:[],{encoding:'utf8',timeout:120000});
+      fs.writeFileSync(path.join(reportDir,`${label}.log`),`${run.stdout}${run.stderr}`);
+      assert.equal(run.status,0,`${run.error ?? ''}\n${run.stdout}${run.stderr}`);
+      assert.ok(run.stdout.includes(`${top} PASS`));
+      console.log(`${label}: ordered boundaries and stable-token regression passed`);
+    }
+  }
+
   // Execute upstream recovery/memory/CSR/wakeup tests through the GENERATED
   // external-decode wrapper, including both predictor modes. Only the module
   // name and paths to its nested core assertions differ from the upstream TB.

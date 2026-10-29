@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import http from 'node:http';
+import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { chromium } from 'playwright';
 
@@ -183,6 +184,13 @@ try {
   const oryVersion=JSON.parse(Object.entries(oryEntries).find(([key])=>key.endsWith('/SOURCE_VERSION.json'))[1]);
   assert.ok(oryVersion.repository.endsWith('/ORYUKDO.git'));
   assert.equal(Object.keys(oryVersion.sha256).length,17);
+  const pinnedVersions=JSON.parse(await fs.readFile(path.join(appRoot,'../platforms/versions.json'),'utf8'));
+  assert.deepEqual(oryVersion,pinnedVersions.oryukdo,'Browser ZIP must use the pinned ORYUKDO revision');
+  for (const [name,hash] of Object.entries(oryVersion.sha256)) {
+    const file=Object.entries(oryEntries).find(([key])=>key.endsWith(`/oryukdo_rtl/${name}`));
+    assert.ok(file,`Missing bundled RTL: ${name}`);
+    assert.equal(createHash('sha256').update(file[1]).digest('hex'),hash,`Browser RTL hash: ${name}`);
+  }
   assert.ok(Object.keys(oryEntries).some(key=>key.endsWith('/INTEGRATION.md')));
   await page.getByRole('button', { name:/Architecture/ }).click();
   assert.ok((await page.locator('.studio-export-summary').textContent()).includes('VARZero/ORYUKDO'));

@@ -1,5 +1,8 @@
 # 플랫폼 RTL 소스
 
+2026-10-29 오륙도 frontier 수정과 생성 ZIP 검증은
+[업데이트 기록](FRONTIER_BOUNDARY_FIX.md)을 참고하세요.
+
 **EULSUKDO Gen2**와 **ORYUKDO Gen2**를 제공합니다. 각 `VARZero/EULSUKDO`, `VARZero/ORYUKDO` 저장소의 `gen2/src/RTL`을 각각 `gen/platforms/eulsukdo/RTL`, `gen/platforms/oryukdo/RTL`에 그대로 동봉합니다. 을숙도는 9개, 오륙도는 공통 모듈을 포함한 17개 파일입니다. 플랫폼별 소스는 독립적으로 고정되며, 오륙도 업데이트가 을숙도 소스를 바꾸지 않습니다.
 
 `versions.json`에는 원본 커밋과 파일별 SHA-256이 있습니다. 같은 정보가 생성 ZIP의 `SOURCE_VERSION.json`에 포함됩니다. 동기화는 커밋된 파일을 가져오므로 로컬 미커밋 수정은 포함하지 않습니다.
