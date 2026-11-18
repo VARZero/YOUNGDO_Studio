@@ -9,22 +9,25 @@ import eulsukdo_6 from '../../../platforms/eulsukdo/RTL/physical_register_mapper
 import eulsukdo_7 from '../../../platforms/eulsukdo/RTL/ready_station.sv?raw';
 import eulsukdo_8 from '../../../platforms/eulsukdo/RTL/write_back_concatenation.sv?raw';
 import oryukdo_0 from '../../../platforms/oryukdo/RTL/_element_logics.sv?raw';
-import oryukdo_1 from '../../../platforms/oryukdo/RTL/eulsukdo_scheduler.sv?raw';
-import oryukdo_2 from '../../../platforms/oryukdo/RTL/flow_control_logic.sv?raw';
-import oryukdo_3 from '../../../platforms/oryukdo/RTL/instruction_state_table.sv?raw';
-import oryukdo_4 from '../../../platforms/oryukdo/RTL/load_store_queue.sv?raw';
-import oryukdo_5 from '../../../platforms/oryukdo/RTL/new_entry_logic.sv?raw';
-import oryukdo_6 from '../../../platforms/oryukdo/RTL/oryukdo_completion_queue.sv?raw';
-import oryukdo_7 from '../../../platforms/oryukdo/RTL/oryukdo_dependency_mapper.sv?raw';
-import oryukdo_8 from '../../../platforms/oryukdo/RTL/oryukdo_frontier.sv?raw';
-import oryukdo_9 from '../../../platforms/oryukdo/RTL/oryukdo_memory.sv?raw';
-import oryukdo_10 from '../../../platforms/oryukdo/RTL/oryukdo_new_entry_logic.sv?raw';
-import oryukdo_11 from '../../../platforms/oryukdo/RTL/oryukdo_rename.sv?raw';
-import oryukdo_12 from '../../../platforms/oryukdo/RTL/oryukdo_result_selector.sv?raw';
-import oryukdo_13 from '../../../platforms/oryukdo/RTL/oryukdo_scheduler.sv?raw';
-import oryukdo_14 from '../../../platforms/oryukdo/RTL/physical_register_mapper.sv?raw';
-import oryukdo_15 from '../../../platforms/oryukdo/RTL/ready_station.sv?raw';
-import oryukdo_16 from '../../../platforms/oryukdo/RTL/write_back_concatenation.sv?raw';
+import oryukdo_1 from '../../../platforms/oryukdo/RTL/instruction_state_table.sv?raw';
+import oryukdo_2 from '../../../platforms/oryukdo/RTL/physical_register_mapper.sv?raw';
+import oryukdo_3 from '../../../platforms/oryukdo/RTL/ready_station.sv?raw';
+import oryukdo_4 from '../../../platforms/oryukdo/RTL/oryukdo_new_entry_logic.sv?raw';
+import oryukdo_5 from '../../../platforms/oryukdo/RTL/oryukdo_flow_control_logic.sv?raw';
+import oryukdo_6 from '../../../platforms/oryukdo/RTL/oryukdo_load_store_queue.sv?raw';
+import oryukdo_7 from '../../../platforms/oryukdo/RTL/write_back_concatenation.sv?raw';
+import oryukdo_8 from '../../../platforms/oryukdo/RTL/oryukdo_issue_guard.sv?raw';
+import oryukdo_9 from '../../../platforms/oryukdo/RTL/oryukdo_result_guard.sv?raw';
+import oryukdo_10 from '../../../platforms/oryukdo/RTL/oryukdo_recovery_boundary.sv?raw';
+import oryukdo_11 from '../../../platforms/oryukdo/RTL/oryukdo_branch_recovery.sv?raw';
+import oryukdo_12 from '../../../platforms/oryukdo/RTL/oryukdo_branch_predictor.sv?raw';
+import oryukdo_13 from '../../../platforms/oryukdo/RTL/oryukdo_recovery_mapper.sv?raw';
+import oryukdo_14 from '../../../platforms/oryukdo/RTL/oryukdo_recovery_arbiter.sv?raw';
+import oryukdo_15 from '../../../platforms/oryukdo/RTL/oryukdo_commit_trap_controller.sv?raw';
+import oryukdo_16 from '../../../platforms/oryukdo/RTL/oryukdo_sidefx_commit_bridge.sv?raw';
+import oryukdo_17 from '../../../platforms/oryukdo/RTL/oryukdo_control_plane.sv?raw';
+import oryukdo_18 from '../../../platforms/oryukdo/RTL/oryukdo_scheduler_integrated.sv?raw';
+import oryukdo_19 from '../../../platforms/oryukdo/RTL/oryukdo_exception_prefix_map.sv?raw';
 
 export const rtlSourceSets = {
   eulsukdo: {
@@ -40,22 +43,25 @@ export const rtlSourceSets = {
   },
   oryukdo: {
     "_element_logics.sv": oryukdo_0,
-    "eulsukdo_scheduler.sv": oryukdo_1,
-    "flow_control_logic.sv": oryukdo_2,
-    "instruction_state_table.sv": oryukdo_3,
-    "load_store_queue.sv": oryukdo_4,
-    "new_entry_logic.sv": oryukdo_5,
-    "oryukdo_completion_queue.sv": oryukdo_6,
-    "oryukdo_dependency_mapper.sv": oryukdo_7,
-    "oryukdo_frontier.sv": oryukdo_8,
-    "oryukdo_memory.sv": oryukdo_9,
-    "oryukdo_new_entry_logic.sv": oryukdo_10,
-    "oryukdo_rename.sv": oryukdo_11,
-    "oryukdo_result_selector.sv": oryukdo_12,
-    "oryukdo_scheduler.sv": oryukdo_13,
-    "physical_register_mapper.sv": oryukdo_14,
-    "ready_station.sv": oryukdo_15,
-    "write_back_concatenation.sv": oryukdo_16,
+    "instruction_state_table.sv": oryukdo_1,
+    "physical_register_mapper.sv": oryukdo_2,
+    "ready_station.sv": oryukdo_3,
+    "oryukdo_new_entry_logic.sv": oryukdo_4,
+    "oryukdo_flow_control_logic.sv": oryukdo_5,
+    "oryukdo_load_store_queue.sv": oryukdo_6,
+    "write_back_concatenation.sv": oryukdo_7,
+    "oryukdo_issue_guard.sv": oryukdo_8,
+    "oryukdo_result_guard.sv": oryukdo_9,
+    "oryukdo_recovery_boundary.sv": oryukdo_10,
+    "oryukdo_branch_recovery.sv": oryukdo_11,
+    "oryukdo_branch_predictor.sv": oryukdo_12,
+    "oryukdo_recovery_mapper.sv": oryukdo_13,
+    "oryukdo_recovery_arbiter.sv": oryukdo_14,
+    "oryukdo_commit_trap_controller.sv": oryukdo_15,
+    "oryukdo_sidefx_commit_bridge.sv": oryukdo_16,
+    "oryukdo_control_plane.sv": oryukdo_17,
+    "oryukdo_scheduler_integrated.sv": oryukdo_18,
+    "oryukdo_exception_prefix_map.sv": oryukdo_19,
   },
 };
 export const sourceVersions = {
@@ -63,6 +69,17 @@ export const sourceVersions = {
     "repository": "https://github.com/VARZero/EULSUKDO.git",
     "commit": "9b0e1c6b792b132f05844c3113ff8dfde712cd77",
     "path": "gen2/src/RTL",
+    "sourcePaths": {
+      "_element_logics.sv": "gen2/src/RTL/_element_logics.sv",
+      "eulsukdo_scheduler.sv": "gen2/src/RTL/eulsukdo_scheduler.sv",
+      "flow_control_logic.sv": "gen2/src/RTL/flow_control_logic.sv",
+      "instruction_state_table.sv": "gen2/src/RTL/instruction_state_table.sv",
+      "load_store_queue.sv": "gen2/src/RTL/load_store_queue.sv",
+      "new_entry_logic.sv": "gen2/src/RTL/new_entry_logic.sv",
+      "physical_register_mapper.sv": "gen2/src/RTL/physical_register_mapper.sv",
+      "ready_station.sv": "gen2/src/RTL/ready_station.sv",
+      "write_back_concatenation.sv": "gen2/src/RTL/write_back_concatenation.sv"
+    },
     "sha256": {
       "_element_logics.sv": "b330cb3f3af0bc1e0650f40ea11b5d407378718bc6a945f669c1228f1fa8df6d",
       "eulsukdo_scheduler.sv": "333f20659a0ae18bf7f22318e288b0729fc8089b01fa28db4b35b84686dcbdad",
@@ -77,26 +94,51 @@ export const sourceVersions = {
   },
   "oryukdo": {
     "repository": "https://github.com/VARZero/ORYUKDO.git",
-    "commit": "84e07b64b525b9d243b74641a1e59bb1337f4f52",
-    "path": "gen2/src/RTL",
+    "commit": "65a06e6595cb1030bdebd363f23249f9ad4650b0",
+    "path": "rtl/sources_gen3.f",
+    "sourcePaths": {
+      "_element_logics.sv": "gen2/src/RTL/_element_logics.sv",
+      "instruction_state_table.sv": "gen2/src/RTL/instruction_state_table.sv",
+      "physical_register_mapper.sv": "gen2/src/RTL/physical_register_mapper.sv",
+      "ready_station.sv": "gen2/src/RTL/ready_station.sv",
+      "oryukdo_new_entry_logic.sv": "rtl/oryukdo_new_entry_logic.sv",
+      "oryukdo_flow_control_logic.sv": "rtl/oryukdo_flow_control_logic.sv",
+      "oryukdo_load_store_queue.sv": "rtl/oryukdo_load_store_queue.sv",
+      "write_back_concatenation.sv": "gen2/src/RTL/write_back_concatenation.sv",
+      "oryukdo_issue_guard.sv": "rtl/oryukdo_issue_guard.sv",
+      "oryukdo_result_guard.sv": "rtl/oryukdo_result_guard.sv",
+      "oryukdo_recovery_boundary.sv": "rtl/oryukdo_recovery_boundary.sv",
+      "oryukdo_branch_recovery.sv": "rtl/oryukdo_branch_recovery.sv",
+      "oryukdo_branch_predictor.sv": "rtl/oryukdo_branch_predictor.sv",
+      "oryukdo_recovery_mapper.sv": "rtl/oryukdo_recovery_mapper.sv",
+      "oryukdo_recovery_arbiter.sv": "rtl/oryukdo_recovery_arbiter.sv",
+      "oryukdo_commit_trap_controller.sv": "rtl/oryukdo_commit_trap_controller.sv",
+      "oryukdo_sidefx_commit_bridge.sv": "rtl/oryukdo_sidefx_commit_bridge.sv",
+      "oryukdo_control_plane.sv": "rtl/oryukdo_control_plane.sv",
+      "oryukdo_scheduler_integrated.sv": "rtl/oryukdo_scheduler_integrated.sv",
+      "oryukdo_exception_prefix_map.sv": "rtl/oryukdo_exception_prefix_map.sv"
+    },
     "sha256": {
-      "_element_logics.sv": "b330cb3f3af0bc1e0650f40ea11b5d407378718bc6a945f669c1228f1fa8df6d",
-      "eulsukdo_scheduler.sv": "333f20659a0ae18bf7f22318e288b0729fc8089b01fa28db4b35b84686dcbdad",
-      "flow_control_logic.sv": "8bc64d4778f86e270172a5777723830b58932e171d40ec4c9ad236ac465715c6",
-      "instruction_state_table.sv": "3362962bcd15bd66431baafafef0f48bec3f8be552c65902b832e75028f7569e",
-      "load_store_queue.sv": "2f034721275a73c6400af5d1868378e337f17c7cae8f56dd2a8cedf9e16b7a99",
-      "new_entry_logic.sv": "bab7518424804500c5c9d42fca1802fed3f602f7ba690dd9084c309917e33193",
-      "oryukdo_completion_queue.sv": "813f525c93282d739998cd61e5d7bbeb15cb8b63c7082731a0b8dc06449fcfa9",
-      "oryukdo_dependency_mapper.sv": "e513025a525f5eb7a9e66e9325984452da27dfa2711f04382f8f52a0e89a1a12",
-      "oryukdo_frontier.sv": "b6e971e8d6f211c54d7dc083643e17deaa5088830260e1bc6d11697f2fa633a7",
-      "oryukdo_memory.sv": "ecbc02825c2d1950b0d309af32eaf06999241c9c4f0efdd94a3ab1b4d1cc3fb0",
-      "oryukdo_new_entry_logic.sv": "304683edc265b55bda9097eb8818d10b6fd433fb97e70b905abcd36bbc46263f",
-      "oryukdo_rename.sv": "33a292af238b1fcc2deedd7c1748349127c3cf270afb1c080a87772df45314bc",
-      "oryukdo_result_selector.sv": "54e485819bfaa985693e9ef94ea13b22c20ad8c8d60cc4c604c90705f151be2d",
-      "oryukdo_scheduler.sv": "ab32d639ddd49ea9e8a1095c2f5098c8f38bef9e899f751b441819d6776a1c28",
-      "physical_register_mapper.sv": "05f8efbe29c7378fbb6d5e25c6ed6e425d3d5aeba9dbb0cc85c733fa77b41d06",
-      "ready_station.sv": "d33c25b208cdcc0f24d91e951ac51608d30e81b0c305c3fc9e0cdc73915ab059",
-      "write_back_concatenation.sv": "9a62e2fdcdd6723a241d5d7e1264be3053427fbf47efa18dc878f6cd6fb41b68"
+      "_element_logics.sv": "248cba403905595d7b1c25edbef484c248a350fd3f9bb769dbe0705b6f27feda",
+      "instruction_state_table.sv": "5806c2cf2fef46c53bc059f1d787fa2b6cf97d281dea5bbc707fe05121e2f031",
+      "physical_register_mapper.sv": "c76e5a59ee7b284460b369eb31148856350bcd5472cd54a8ae46776cfa4d796b",
+      "ready_station.sv": "caf99299fcc28166b68fbd95206c8620f7fdf76fd8526019f33a0d2ee1fffaeb",
+      "oryukdo_new_entry_logic.sv": "6deb9e43f75c691fcd9915aa9862182f64fd1335ab3b541691d2a01544ef160d",
+      "oryukdo_flow_control_logic.sv": "e0616f4e667d0c028ea99d7e2b45ff280eade81e51b1c7206de70d8bd7927b0e",
+      "oryukdo_load_store_queue.sv": "37ccfc39e4fda47ee28b5f1f0b4c3a3f8983778a8f15c0feff48f03b78db2d7e",
+      "write_back_concatenation.sv": "9a62e2fdcdd6723a241d5d7e1264be3053427fbf47efa18dc878f6cd6fb41b68",
+      "oryukdo_issue_guard.sv": "112eb2e7994e3558c4d964332bd14a78b037e352def36e2364579bb801868eb0",
+      "oryukdo_result_guard.sv": "ba23cfdd1532a3e84d1da05b14327a313cc3f5e8cf7c9ea36520d2d28bf00617",
+      "oryukdo_recovery_boundary.sv": "696599c1aea8b33bb4dec4c3fd35ff3d505fb15f8addc6a66012403e77790854",
+      "oryukdo_branch_recovery.sv": "fd79c1f9b4caf53a1dd94f5ddfb291af440723368449628d8cac893862f22fad",
+      "oryukdo_branch_predictor.sv": "6aa0734bbab6b2b0c7a7fdeabae00410f5b16b442027a7e83c018f651d6e6ba4",
+      "oryukdo_recovery_mapper.sv": "5ec9e411dd56c6e21c864fe9c845e22b495efa62d27ce249ef0e48b03d4e8069",
+      "oryukdo_recovery_arbiter.sv": "30ae257c804228bfb51abe43980bcca4b0301ab329402d965333065c38c55f19",
+      "oryukdo_commit_trap_controller.sv": "930c8082a4bb1cc24c72aa13826c42c4f3ec8c90586446ffec124feda88f8d11",
+      "oryukdo_sidefx_commit_bridge.sv": "4db3742c8e57a808a3fb03ade34dae514f9ca4f6fe6395c074208355a58c2e4f",
+      "oryukdo_control_plane.sv": "b60c6b0633205be6f79e28691f7c3fa1cea5aa72fdf5d31cc218dc0f26823678",
+      "oryukdo_scheduler_integrated.sv": "362ea0cef27e15e75519dd82141fd6f174b60128c5587e54ef2d13eda5a093a2",
+      "oryukdo_exception_prefix_map.sv": "e4ac759ebf8c13bce41cda6af10a3bbd54a54eaac0ccd840528bb52e4f6eab02"
     }
   }
 } as const;

@@ -1,21 +1,18 @@
 # YOUNGDO Studio 사용설명서
 
-EULSUKDO와 ORYUKDO Gen2를 구성합니다. 기본값은 **2d5i, IST 128개, 물리 레지스터 64개, 경로별 RS FIFO 128개**입니다. 경로 순서는 Branch 1개, ALU 3개, Memory 1개입니다. 을숙도의 **LSQ는 선택형이며 기본 OFF**입니다.
+EULSUKDO Gen2와 ORYUKDO Gen3를 구성합니다. 기본값은 **2d5i, IST 128개, 물리 레지스터 64개, 경로별 RS FIFO 128개**입니다. 경로 순서는 Branch 1개, ALU 3개, Memory 1개입니다. 을숙도의 **LSQ는 선택형이며 기본 OFF**입니다.
 
-## 오륙도 선택 시
+## 오륙도 Gen3 선택 시
 
-- 오륙도는 **내장 LSQ**가 기본값입니다. **LSQ 구현 선택 → 사용자 LSQ RTL**로 교체할 수 있습니다. 내장 용량은 frontier 엔트리 수를 따르며 사용자 용량은 해당 RTL에서 정합니다. PRM 대기 슬롯은 4, 순차 반환 폭은 1, IST 뱅크는 자동입니다.
-- 사용자 모드는 JSON의 `scheduler.lsqMode="custom"`에 해당하며 `CUSTOM_LSQ=1`을 생성합니다. ZIP의 `RTL/custom_lsq/oryukdo_custom_lsq.sv` 내부를 수정하거나 자신이 만든 모듈을 연결하세요. 시작 파일은 기존 내장 엔진을 호출하므로 교체 전까지 동작을 유지합니다. 내장 선택 또는 `lsqMode` 생략 시에는 이 파일 없이 기존 내장 구현만 사용합니다.
-- 사용자 LSQ는 단순 순서 FIFO뿐 아니라 AGU 접수, 완료, Store 외부 공개, MMIO 순서와 flush 후 버스 응답 처리까지 맡습니다. 입력 미리보기 `i_reserve`와 `o_allocate_ready`로 정체를 걸고 실제 `i_allocate`에서만 저장합니다. 상세 계약은 ZIP의 `INTEGRATION.md`를 참고하세요. `enableMemoryOrder=false`는 오륙도의 안전한 우회 기능이 아니므로 지원하지 않습니다. 사용자 모드에서는 `lsqEntries`를 생략합니다.
-- 정적 예측은 순차 다음 PC를 사용합니다. 외부 예측 모드는 정적 예측기를 제거하고 요청 PC·epoch에 맞는 응답을 기다립니다. 응답이 없을 때 정적 예측으로 진행하지 않습니다.
-- 생성 디코더 모드는 `i_instruction`에서 ISA를 해석합니다. 메모리 명령은 선택한 EX 경로로 분류합니다. **`i_decode_store`, `i_decode_csr`, `i_decode_end`는 프런트엔드가 별도로 제공**해야 합니다. Store를 Load로 잘못 분류하지 않도록 주의하세요. CSR은 메모리 명령과 구분합니다.
-- 생성 모드의 인출 오류는 `i_frontend_exception/cause`로 전달하고, illegal instruction은 cause 2가 됩니다. 인출 오류가 우선합니다. 외부 디코더 모드는 모든 `i_decode_*`를 직접 제공합니다.
-- PC·epoch·valid와 명령은 `o_decode_get` 수락까지 유지합니다. `o_fetch_pc`, `o_fetch_epoch`, `o_flush`를 따라 프런트엔드의 이전 응답과 취소된 EX 작업을 폐기합니다.
-- 일반 EX는 원래 token을 `i_result_*`로 반환하고, 메모리 EX는 주소·데이터·MMU 결과를 `i_agu_*`로 반환합니다. 메모리 명령을 일반 결과로 중복 완료시키지 않습니다. 실제 RF 쓰기는 `o_wb_valid/phy/data/uop`를 사용하며 `o_result_accept`는 쓰기 허가가 아닙니다.
-- EX·RF·MMU·CSR 실행기·프런트엔드 구현은 외부에 연결합니다. MMIO는 `i_agu_nonspec`으로 표시합니다. 인터럽트는 확정 윈도우 경계에서 처리하며 외부 CSR 장치가 trap 상태와 인터럽트 조건을 갱신합니다.
-- 최상위는 `oryukdo_example_top`, 소스 폴더는 `RTL/oryukdo_rtl`입니다. PC/데이터는 32비트, PC 증분은 4, generation/epoch는 32비트입니다. 생성 ZIP은 완성 CPU가 아닙니다.
+기본 3D/5I, IST 128개, 물리 레지스터 64개, LSQ 32개입니다. PRM 대기 슬롯 4, 반환 폭 4이며 IST 뱅크는 자동 또는 직접 지정할 수 있습니다. 커밋 폭은 디코드 폭이며 윈도 크기는 이 폭 이상이어야 합니다.
 
-아래의 기존 `i_nel_decode_*`, Flow Window + PC 완료 및 선택형 두 FIFO LSQ 설명은 을숙도에 해당합니다. 오륙도는 화면의 오륙도 연결 안내와 위 계약을 사용하세요.
+- 생성 디코더 입력은 `i_im_recv_inst`, 외부 디코더는 `i_nel_decode_*`입니다. 인출 요청의 Flow ID + PC를 그대로 반환하고 `o_im_recv_inst_get`까지 유지합니다.
+- EX 완료는 `i_wbc_result_valid/data` 펄스입니다. RF 쓰기는 `o_wbc_accept`로 허가된 레인만 수행합니다. 예외는 `i_exception_*`, 복구는 `o_backend_kill_*`, Store/CSR/MMIO 확정은 sidefx handshake를 사용합니다.
+- LSQ는 복구 가능한 두 FIFO 순서 게이트입니다. AGU와 메모리 버스는 EX 외부 구성요소입니다. Store 전달 엔진을 포함하지 않습니다. LSQ는 항상 켜며 경로와 깊이(기본 32)를 지정합니다.
+- 사용자 LSQ를 선택하면 `RTL/custom_lsq/oryukdo_custom_lsq.sv`와 이를 호출하는 파생 스케줄러가 추가됩니다. 시작 파일은 현재 내장 LSQ를 호출하며 `lsqEntries`를 따릅니다. 원본 20개 RTL은 변경하지 않습니다.
+- 외부 예측기는 query의 Flow ID + PC 태그에 맞는 response를 반환합니다. 정적 fallback은 없습니다.
+- CPU 내부 BRAM 제어 경로와 연결할 때는 비동기 포트 격리를 해제(`asyncPortIsolation=false`)하세요. 독립 모듈의 기본값은 true입니다.
+- Gen2 오륙도 ZIP과 포트 호환되지 않습니다. 설정 JSON을 다시 내보내고 새 `INTEGRATION.md`에 따라 연결하세요. 완성 CPU나 사용자 EX의 검증 결과를 의미하지 않습니다.
 
 ## 실행과 화면
 
@@ -26,11 +23,11 @@ EULSUKDO와 ORYUKDO Gen2를 구성합니다. 기본값은 **2d5i, IST 128개, �
 | 아키텍처 | 디코드 폭, IST·물리 레지스터 수, RS FIFO 엔트리, IST 발행 폭·SRAM 뱅크 |
 | 디코더 / ISA | 생성 디코더 또는 외부 디코더 선택, 명령어 형식·즉시값·micro-op·EX 경로 매핑 |
 | EX 모듈 | 실행 경로 순서·이름·실행 유닛 수, 발행·WBC 레인 |
-| 검증 / 내보내기 | 설정 오류, RTL 미리보기, ZIP 생성, Gen2 연결 안내 |
+| 검증 / 내보내기 | 설정 오류, RTL 미리보기, ZIP 생성, 플랫폼별 연결 안내 |
 
 IST 발행 폭을 비우면 EX 유닛 수를 따릅니다. IST 뱅크 수를 비우면 `max(디코드 폭, IST 발행 폭)` 이상의 최소 2의 거듭제곱이 됩니다. 뱅크 수를 직접 지정하면 디코드 폭 이상인 2의 거듭제곱이어야 합니다. RS FIFO 엔트리는 `STRUCT_RS_FIFO_WIDTH`이며 경로별 최소 명령어 수입니다. FIFO 행 반올림과 입출력 버퍼 때문에 실제 저장 공간은 더 클 수 있습니다.
 
-설정값은 JSON에 보존됩니다. 기존 을숙도 JSON은 신규 설정이 없어도 자동 기본값으로 불러올 수 있습니다. LSQ가 활성화된 JSON은 경로와 깊이가 유효하면 불러옵니다. 오륙도 JSON은 설명과 함께 거절하고 현재 설정을 유지합니다. PRM 갱신 폭 등 기존 JSON 파라미터도 그대로 전달합니다.
+설정값은 JSON에 보존됩니다. 기존 을숙도 JSON은 신규 설정이 없어도 자동 기본값으로 불러올 수 있습니다. LSQ가 활성화된 JSON은 경로와 깊이가 유효하면 불러옵니다. 오륙도 JSON도 현재 Gen3 제약에 맞으면 불러옵니다. PRM 갱신 폭 등 기존 JSON 파라미터도 그대로 전달합니다.
 
 ## 선택형 LSQ
 
@@ -68,13 +65,13 @@ Store를 단순 버퍼에 넣은 시점이 아니라 다음 메모리 명령을 
 
 ## 생성 결과
 
-ZIP에는 설정 JSON, `eulsukdo_example_top` 연결 모듈, 선택한 경우 생성 디코더, 현재 Gen2 RTL 9개와 `SOURCE_VERSION.json`이 들어갑니다. LSQ OFF에서도 소스 파일은 동봉되며 RTL generate 조건으로 회로가 제외됩니다. 외부 디코더 모드에서는 `i_nel_decode_*` 입력을 노출하고 생성 디코더 파일은 포함하지 않습니다. `RTL/ex_rtl/`은 사용자 EX를 위한 빈 폴더입니다.
+ZIP에는 설정 JSON, 플랫폼별 연결 모듈(`eulsukdo_example_top` 또는 `oryukdo_example_top`), 선택한 경우 생성 디코더, 원본 RTL과 `SOURCE_VERSION.json`이 들어갑니다. 을숙도는 Gen2 RTL 9개, 오륙도는 Gen3 manifest의 RTL 20개이며 사용자 LSQ를 선택하면 파생 파일 두 개도 추가됩니다. 을숙도 LSQ OFF에서도 소스 파일은 동봉되며 RTL generate 조건으로 회로가 제외됩니다. 외부 디코더 모드에서는 `i_nel_decode_*` 입력을 노출하고 생성 디코더 파일은 포함하지 않습니다. `RTL/ex_rtl/`은 사용자 EX를 위한 빈 폴더입니다.
 
 EX는 `valid && get`에서 명령을 수락합니다. EX 패킷의 하위 필드부터 `{Flow ID, PC}` 키, EX 경로, micro-op, 즉시값, 목적 물리 레지스터, 소스 물리 레지스터가 이어집니다. 키의 최하위 비트는 PC입니다.
 
 일반 완료 데이터는 `{목적 물리 레지스터, Flow ID, PC}`이며 연산값 자체는 외부 데이터 레지스터 파일에 기록합니다. 분기 완료는 `{실제 다음 PC, 원래 Flow ID, 원래 PC}`이고 일반 완료도 별도로 보고합니다. 이전 버전의 분기 플래그 묶음과 다릅니다.
 
-기본 ADD/SUB/LW는 예시이며 완성 RV32I 구현이 아닙니다. EX, 메모리, 데이터 레지스터 파일을 연결하고 의존 명령·버퍼 포화·동시 완료·분기·리셋을 시스템 수준에서 검증하세요. 오륙도 복구·예측 인터페이스는 이 ZIP에 포함되지 않습니다.
+기본 ADD/SUB/LW는 예시이며 완성 RV32I 구현이 아닙니다. EX, 메모리, 데이터 레지스터 파일을 연결하고 의존 명령·버퍼 포화·동시 완료·분기·리셋을 시스템 수준에서 검증하세요. 오륙도 ZIP은 복구·예측 인터페이스와 `INTEGRATION.md`를 포함합니다.
 
 ## 검증
 

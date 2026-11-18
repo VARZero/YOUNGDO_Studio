@@ -91,32 +91,101 @@ function safeProjectName(projectName: string): string {
     .replace(/^[._-]+|[._-]+$/g, '') || 'project';
 }
 
-// Derive the starter's port list from the pinned memory engine, so widths and
-// grouped declarations stay identical. The generated body is user-owned RTL.
+// Preserve upstream sources verbatim; custom mode adds a derived scheduler
+// whose only changes are its module name and the LSQ instantiation target.
+export function generateCustomScheduler(): string {
+  const source = rtlSourcesFor('oryukdo')['oryukdo_scheduler_integrated.sv'];
+  if ((source.match(/oryukdo_load_store_queue #\(/g) ?? []).length !== 1)
+    throw new Error('Gen3 LSQ instantiation changed');
+  return source.replace('module oryukdo_gen3_scheduler', 'module oryukdo_gen3_custom_scheduler')
+    .replace('oryukdo_load_store_queue #(', 'oryukdo_custom_lsq #(');
+}
+
 export function generateCustomLsqTemplate(): string {
-  const source = rtlSourcesFor('oryukdo')['oryukdo_memory.sv'];
+  const source = rtlSourcesFor('oryukdo')['oryukdo_load_store_queue.sv'];
   const end = source.indexOf('\n);');
-  if (end < 0) throw new Error('ORYUKDO memory module header not found');
-  const header = source.slice(source.indexOf('module oryukdo_memory'), end + 3)
-    .replace('module oryukdo_memory', 'module oryukdo_custom_lsq')
-    .replace('    input wire [LANES-1:0] i_allocate,',
-      '    // Preview only: no allocation side effects until i_allocate.\n    input wire [LANES-1:0] i_reserve,\n    output wire o_allocate_ready,\n    input wire [LANES-1:0] i_allocate,');
-  const ports = [...source.slice(source.indexOf(') ('), end).matchAll(/^\s*(?:input|output)\s+(?:wire|logic)\s+(?:\[[^\]]+\]\s+)?(.+)$/gm)]
-    .flatMap(match => match[1].trim().replace(/,$/, '').split(',').map(name => name.trim()));
-  if (ports.length < 35 || !header.includes('i_reserve')) throw new Error('ORYUKDO LSQ interface changed');
-  return `\x60timescale 1ns/1ps
-// Starting implementation: delegates to the existing built-in memory engine.
-// Replace this body or instantiate your own RTL; retain the module contract.
+  if (end < 0) throw new Error('Gen3 LSQ header not found');
+  const header = source.slice(source.indexOf('module '), end + 3)
+    .replace('module oryukdo_load_store_queue', 'module oryukdo_custom_lsq');
+  const parameters = [...header.matchAll(/\bparameter int (\w+)\s*=/g)].map(match => match[1]);
+  // Expand grouped parameter declarations too (EX_PATH_W, MICROOP_W, ...).
+  for (const name of ['MICROOP_W', 'IMM_W', 'PHY_W'])
+    if (!parameters.includes(name)) parameters.push(name);
+  const ports = [...header.matchAll(/^\s*(?:input|output)\s+(?:wire|logic)\s+(?:\[[^\]]+\]\s+)?(\w+(?:\s*,\s*\w+)*),?\s*$/gm)]
+    .flatMap(match => match[1].split(',').map(name => name.trim()));
+  if (ports.length !== 25) throw new Error('Gen3 LSQ port list changed');
+  return `// Gen3 starter: replace the body, retaining the recovery/ordering contract.
 // See INTEGRATION.md. Compile exactly one oryukdo_custom_lsq definition.
 ${header}
-    assign o_allocate_ready=1'b1;
-    oryukdo_memory #(.DEPTH(DEPTH),.LANES(LANES),.ADDR_W(ADDR_W),
-        .DATA_W(DATA_W),.GEN_W(GEN_W),.CAUSE_W(CAUSE_W)) U_REFERENCE (
+    oryukdo_load_store_queue #(
+${parameters.map(name => `        .${name}(${name})`).join(',\n')}
+    ) U_REFERENCE (
 ${ports.map(name => `        .${name}(${name})`).join(',\n')}
     );
 endmodule
 `;
 }
+
+export const oryukdoIntegrationGuide = `# ORYUKDO Gen3 integration
+
+Top: oryukdo_example_top wraps oryukdo_gen3_scheduler. Supply frontend, EX,
+data RF, memory/MMU and CSR logic. This ZIP is a scheduler, not a complete CPU.
+Gen2 ORYUKDO token/epoch, i_decode_*, i_agu_* and o_wb_* interfaces are obsolete.
+
+## Fetch and decode
+Echo each requested {Flow ID, PC} from o_im_req_pc on i_im_recv_pc. Hold
+i_im_recv_inst_valid/pc/inst until o_im_recv_inst_get. Generated decode reads
+i_im_recv_inst; external decode also supplies all ten i_nel_decode_* buses.
+The generated decoder reports illegal instruction via i_nel_decode_exception.
+Additional execution/MMU faults use i_exception_valid/tag/phyreg/cause/tval.
+Those inputs are transfer pulses; report the original tag and destination PHY
+(zero when there is no destination), including faults without a normal WBC.
+Do not invent a separate frontend-fault cause port: the pinned core has none.
+
+## Execution, completion and recovery
+Accept o_rs_entry_data on o_rs_entry_valid && i_rs_entry_get. Packed MSB to LSB:
+{source_phyregs, dest_phyreg, immediate, microop, expath, Flow ID, PC}.
+WBC completion is {dest_phyreg, Flow ID, PC}; i_wbc_result_valid/data is a pulse,
+not a ready/retry interface. Only accepted o_wbc_accept lanes may write the RF.
+Instructions without destinations, including stores, complete with rd=0.
+Branch results separately report {resolved_next_PC, original Flow ID, PC}.
+Honor o_backend_kill_valid/inclusive/tag and o_backend_oldest_flow in external
+execution and pending memory work; do not recycle stale completions. Tie the
+diagnostic i_oryukdo_issue_kill/result_kill overrides low in normal integration.
+
+## LSQ and side effects
+LSQ depth defaults to 32 independently of IST entries. It serializes the chosen
+EX path using ordered and ready FIFOs; at most one matching memory command is
+in flight. Memory/AGU/data buses remain external. This is not a store-forwarding
+memory engine. Report completion only when the next memory command may start.
+Store/CSR/MMIO publication must follow the side-effect commit handshake.
+i_sidefx_valid/tag reports prepared side effects (transfer pulses, not requests).
+Preparation alone must not send normal WBC completion.
+Match o_sidefx_valid/tag/slot, accept via i_sidefx_ready, and acknowledge through
+i_sidefx_done. Success also returns normal WBC exactly once; errors use
+i_sidefx_done/error/cause/tval without duplicate normal WBC. Precise failures
+require no partial external write. Trap CSR requests complete through i_trap_csr_done; supply trap
+vector and interrupt eligibility externally. Commit width follows decodeWidth.
+
+Custom mode exports RTL/custom_lsq/oryukdo_custom_lsq.sv and a derived scheduler.
+Pinned sources remain byte-identical. The starter calls oryukdo_load_store_queue.
+Replace its body while preserving every parameter and port. i_order_valid/tag
+are transfer pulses after o_order_ready; ready/ex use valid/get. Preserve paired
+FIFO reservations until matching i_done_valid/tag, recovery boundary filtering,
+discard notifications and cancel-PHY wakeups. DEPTH follows lsqEntries. Include
+both custom files when compiling custom mode, with exactly one module definition.
+
+## Predictor and reset
+Static prediction is not-taken for conditional branches. External mode uses
+o_predict_query_* / i_predict_query_ready and i_predict_response_* /
+o_predict_response_ready. Return the original query tag and hold responses until
+accepted; there is no static fallback. o_predict_update_* trains the predictor.
+Default ASYNC_PORT_ISOLATION=1 is for a standalone boundary. For CPU integration
+whose issue/WBC paths feed BRAM control, set scheduler.asyncPortIsolation=false.
+Reset release is synchronized; respect valid/get and discard canceled work.
+Keep SOURCE_VERSION.json and youngdo_config.json. Revalidate system behavior,
+custom RTL and FPGA timing for your integration.
+`;
 
 export function projectTopFileName(projectName: string, platform: SchedulerConfig['platform'] = 'eulsukdo'): string {
   return `${safeProjectName(projectName)}_${platform === 'oryukdo' ? 'oryukdo' : 'eulsukdo'}_top.sv`;
@@ -132,65 +201,15 @@ export function buildSourceFiles(topSource: string, decoderSource: string | null
   const customLsq = selected === 'oryukdo' && settings.scheduler?.lsqMode === 'custom';
   return {
     [`${projectDir}/youngdo_config.json`]: settingsJson,
-    ...(selected === 'oryukdo' ? { [`${projectDir}/INTEGRATION.md`]: `# ORYUKDO Gen2 integration
-
-Top: oryukdo_example_top. This is a scheduler, not a complete CPU.
-Supply frontend, EX units, data RF, MMU and CSR executor.
-
-Generated decode consumes i_instruction. The frontend MUST also supply
-i_decode_store, i_decode_csr and i_decode_end, plus PC/epoch/valid.
-Memory classification follows the configured memory path. Keep CSR distinct
-from memory. i_frontend_exception/cause reports fetch faults, taking priority
-over generated illegal-instruction cause 2. External decode supplies every
-i_decode_* field directly. Hold lanes until o_decode_get accepts them and
-follow o_fetch_pc, o_fetch_epoch and o_flush; discard canceled EX work.
-
-Normal EX returns its original slot/generation token on i_result_* and holds
-results until o_result_accept. Memory EX instead returns token, address, data,
-mask and MMU checks through i_agu_*. Do not complete a memory operation twice.
-Write the data RF ONLY on o_wb_valid using o_wb_phy/data/uop; o_result_accept
-is queue admission, not RF write permission. Internal Ready follows RF writes.
-
-LSQ implementation: ${customLsq ? 'CUSTOM_LSQ=1 (user RTL)' : 'CUSTOM_LSQ=0 (built-in, default)'}.
-The built-in implementation has capacity equal to frontier entries.
-${customLsq ? `Edit RTL/custom_lsq/oryukdo_custom_lsq.sv to implement your LSQ or instantiate
-your own module inside it. The supplied starter delegates to oryukdo_memory;
-it initially preserves the built-in behavior. Compile exactly one definition.
-The scheduler selects the custom branch only; the starter's reference engine
-can be removed when you replace its body. Queue sizing belongs to your RTL.
-
-i_reserve previews the full bundle; i_memory/i_store classify lanes. Assert
-o_allocate_ready when the whole bundle fits. Record only i_allocate lanes at
-the clock edge with i_token. Tokens include generation and frontier slot.
-Do not derive ready from i_allocate or i_token (admission-dependent signals).
-Allocation stalls seal partial windows so older work can retire. The minimum
-capacity must accept one legal decode bundle. Flush cancels pending allocation.
-AGU accepts on valid && ready; hold completions until i_complete_accept.
-Report nonspec classification through o_serial_valid/token at AGU acceptance.
-Normal stores complete internally before publication. Publish only a matching
-i_commit_valid && i_commit_store; then o_commit_ready allows retirement.
-Do not block non-store retirement. Nonspec stores/loads must wait for the
-ordered head. Preserve byte forwarding, faults and slot/generation isolation.
-Flush must cancel speculative state and drain outstanding bus responses.
-The bus is serialized and has no response IDs; hold stalled request payloads.
-Report precise publication errors on o_store_fault/token/cause. i_retire with
-i_commit_token frees the retired entry. See the upstream CUSTOM_LSQ.md contract.
-` : 'Select lsqMode="custom" to export the replaceable user LSQ starter.\n'}
-Mark MMIO/side-effecting accesses with i_agu_nonspec. External store publication
-is ordered. A precise store fault requires no partially visible external write.
-CSR runs at ordered issue; external CSR logic handles trap state and interrupt
-eligibility. Interrupts are taken at confirmed window boundaries.
-
-Static prediction selects the sequential PC. External prediction waits for a
-response matching the requested PC and epoch, with NO static fallback.
-PC/data widths are 32, PC step is 4, generation/epoch widths are 32 bits.
-Keep SOURCE_VERSION.json and youngdo_config.json for reproducibility.
-` } : {}),
+    ...(selected === 'oryukdo' ? { [`${projectDir}/INTEGRATION.md`]: oryukdoIntegrationGuide } : {}),
     [`${projectDir}/RTL/${projectTopFileName(projectName, platform)}`]: topSource,
     ...(decoderSource === null ? {} : { [`${projectDir}/RTL/${isaName}_decoder.sv`]: decoderSource }),
     [`${projectDir}/RTL/${selected}_rtl/SOURCE_VERSION.json`]: JSON.stringify(sourceVersions[selected], null, 2) + '\n',
     ...Object.fromEntries(Object.entries(sources).map(([name, source]) => [`${projectDir}/RTL/${selected}_rtl/${name}`, source])),
-    ...(customLsq ? { [`${projectDir}/RTL/custom_lsq/oryukdo_custom_lsq.sv`]: generateCustomLsqTemplate() } : {}),
+    ...(customLsq ? {
+      [`${projectDir}/RTL/custom_lsq/oryukdo_custom_lsq.sv`]: generateCustomLsqTemplate(),
+      [`${projectDir}/RTL/custom_lsq/oryukdo_gen3_custom_scheduler.sv`]: generateCustomScheduler(),
+    } : {}),
     [`${projectDir}/RTL/ex_rtl/`]: '',
   };
 }

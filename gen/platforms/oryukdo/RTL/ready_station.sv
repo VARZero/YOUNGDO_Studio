@@ -112,7 +112,7 @@ module ready_station #(
 
         for (input_position = 0; input_position < INPUT_CHANNEL; input_position = input_position+1) begin
             for (ex_split = 0; ex_split < STRUCT_EX_PATH; ex_split = ex_split+1) begin
-                if (compare_ex_path[input_position] == ex_split)
+                if (int'(compare_ex_path[input_position]) == ex_split)
                     ex_valid[ex_split][input_position] = i_ist_ready_inst_valid[input_position] && accept_bundle;
             end
         end
@@ -242,7 +242,7 @@ module rs_banked_queue #(
                 gathered[r] |= head[b] & {DATA_WIDTH{selected[r][b]}};
         end
         assign o_pop_data[r*DATA_WIDTH +: DATA_WIDTH] = output_data[r];
-        always_ff @(posedge clk or negedge reset_n) begin
+        always_ff @(posedge clk) begin
             if (!reset_n) begin
                 output_valid[r] <= 0; output_data[r] <= '0;
             end else if (!output_valid[r] || i_pop[r]) begin
@@ -251,7 +251,7 @@ module rs_banked_queue #(
             end
         end
     end
-    always_ff @(posedge clk or negedge reset_n) begin
+    always_ff @(posedge clk) begin
         if (!reset_n) first_bank <= '0;
         else first_bank <= next_bank;
     end
@@ -279,11 +279,9 @@ module rs_input_fifo #(
         .o_pop_addr(read_addr), .o_we()
     );
     (* ram_style = "block" *) logic [DATA_WIDTH-1:0] memory [DEPTH];
+    always_ff @(posedge clk) if (write_enable) memory[write_addr] <= data;
+    always_ff @(posedge clk) read_data <= memory[read_addr];
     always_ff @(posedge clk) begin
-        if (write_enable) memory[write_addr] <= data;
-        read_data <= memory[read_addr];
-    end
-    always_ff @(posedge clk or negedge reset_n) begin
         if (!reset_n) begin forward_valid <= 0; forward_data <= '0; end
         else begin
             forward_valid <= write_enable && write_addr == read_addr;

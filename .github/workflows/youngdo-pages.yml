@@ -30,7 +30,7 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
-      - name: Verify pinned Gen2 platform snapshots
+      - name: Verify pinned Gen2 and Gen3 platform snapshots
         run: python3 gen/scripts/sync_platforms.py
       - uses: actions/setup-node@v4
         with:

@@ -1,6 +1,22 @@
 export type Language = 'ko' | 'en';
 
 const korean: Record<string, string> = {
+  "Flow ID + PC recovery": "Flow ID + PC 기반 복구",
+  "Flow tags, checkpoint recovery, window commit and ordered exceptions.": "Flow 태그, 체크포인트 복구, 윈도 커밋과 순서가 보장된 예외를 포함합니다.",
+  "flow tagged issue": "Flow 태그 발행",
+  "RS → LSQ → EX; ordered side effects": "RS → LSQ → EX · 순차 부작용 확정",
+  "EX reports Flow ID + PC completion and honors recovery.": "EX는 Flow ID + PC 완료를 보고하고 복구 경계를 따릅니다.",
+  "flow / accept / recovery": "Flow / 수락 / 복구",
+  "Supply i_nel_decode_* with i_im_recv_pc/inst; hold until o_im_recv_inst_get.": "i_im_recv_pc/inst와 i_nel_decode_*를 o_im_recv_inst_get 수락까지 유지하세요.",
+  "ORYUKDO Gen3 uses Flow ID + PC tags and backend recovery boundaries.": "오륙도 Gen3는 Flow ID + PC 태그와 백엔드 복구 경계를 사용합니다.",
+  "Generated decode reads i_im_recv_inst. Supply side-effect and execution-fault metadata through the Gen3 sideband ports.": "생성 디코더는 i_im_recv_inst를 읽습니다. 부작용과 실행 예외는 Gen3 별도 포트로 전달하세요.",
+  "Memory EX completes with the original Flow ID + PC. Publish side effects only through the commit handshake.": "메모리 EX는 원래 Flow ID + PC로 완료를 보고합니다. 부작용은 커밋 허가에 따라 공개하세요.",
+  "Serialized LSQ": "직렬 실행 LSQ",
+  "Window commit": "윈도 커밋",
+  "IST entries": "IST 엔트리",
+  "IST": "IST",
+  "The ZIP contains the selected Gen2/Gen3 top and RTL. Supply EX and memory in your project.": "ZIP에 선택한 Gen2/Gen3 최상위 모듈과 RTL이 들어갑니다. EX와 메모리를 연결하세요.",
+
   'LSQ implementation': 'LSQ 구현 선택',
   'LSQ implementation shortcut': 'LSQ 구현 빠른 선택',
   'Built-in LSQ': '내장 LSQ',
@@ -231,5 +247,7 @@ const englishErrors: Record<string, string> = {
 
 export function localizedError(language: Language, error: string | null): string | null {
   if (!error || language === 'ko') return error;
+  if (error === '비동기 포트 격리 설정은 불리언이어야 합니다.') return 'Asynchronous port isolation must be a boolean.';
+  if (error === '오륙도 Gen3 윈도 크기는 2 이상이며 디코드·커밋 폭 이상이어야 합니다.') return 'Gen3 window size must be at least 2 and at least the decode/commit width.';
   return englishErrors[error] ?? error.replace(/^(.*?) 즉시값 비트 범위가 겹치거나 유효하지 않습니다\.$/, '$1 immediate bit ranges overlap or are invalid.');
 }

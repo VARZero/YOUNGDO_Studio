@@ -287,7 +287,7 @@ module instruction_state_table #(
     logic [_BITWIDTH_ALLOC_IST_NUM-1:0] grant_data [2];
     logic [ALLOC_WIDTH-1:0] ranked_grant;
     logic [STRUCT_IST_BANKS*ALLOC_CAND_WIDTH-1:0] prepared_candidates;
-    wire [FREE_BANK_COUNT_WIDTH-1:0] available_tree [2*STRUCT_IST_BANKS];
+    wire [FREE_BANK_COUNT_WIDTH-1:0] available_tree [2*STRUCT_IST_BANKS] /* verilator split_var */;
     assign available_tree[0] = '0;
     for (genvar b=0; b<STRUCT_IST_BANKS; b++) begin : G_GRANT_ELIGIBLE
         wire eligible = candidate_valid[b] && candidate_count[b] != 0;
@@ -341,7 +341,7 @@ module instruction_state_table #(
     assign grant_pop = nel_accept_enable && (|i_nel_new_inst_valid);
     assign allocate_valid = {STRUCT_DECODE_NEW_INST{reset_n && grant_count != 0}};
     assign allocate_alloc_num_out = grant_data[grant_read_ptr];
-    always_ff @(posedge clk or negedge reset_n) begin
+    always_ff @(posedge clk) begin
         if (!reset_n) begin
             candidate_valid <= '0; grant_valid <= '0; grant_count <= '0;
             grant_read_ptr <= 0; grant_write_ptr <= 0;
@@ -419,7 +419,7 @@ module instruction_state_table #(
             end
         end
     end
-    always_ff @(posedge clk or negedge reset_n) begin
+    always_ff @(posedge clk) begin
         if (!reset_n) begin
             prm_stage_valid <= '0;
             for (int operand = 0; operand < IS_INST_OPERANDS; operand++) prm_hit[operand] <= '0;
@@ -487,7 +487,7 @@ module instruction_state_table #(
         end
     end
 
-    always_ff @(posedge clk or negedge reset_n) begin
+    always_ff @(posedge clk) begin
         if (!reset_n) begin
             active_entries <= '0; pending_entries <= '0; queued_entries <= '0;
             bypass_valid <= '0; bypass_data <= '0;
@@ -724,7 +724,7 @@ module instruction_state_table #(
                         pending_entries_next[row*STRUCT_IST_BANKS+b] = 1'b0;
                     end
                 end
-                pending_start_next[b] = (pending_pick_row[b] == BANK_ROWS-1) ? '0 : pending_pick_row[b]+1'b1;
+                pending_start_next[b] = (int'(pending_pick_row[b]) == BANK_ROWS-1) ? '0 : pending_pick_row[b]+1'b1;
             end
         end
         o_rs_ready_inst_valid = {bypass_valid, issue_valid} & {(STRUCT_DECODE_NEW_INST+STRUCT_IST_ISSUE_WIDTH){reset_n}};

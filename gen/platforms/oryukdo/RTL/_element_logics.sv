@@ -53,16 +53,12 @@ module regfile #(
 
     logic [DATA_WIDTH-1:0] reg_mem [0:ENTRIES-1];
 
-    always_ff @(posedge clk or negedge reset_n) begin
+    always_ff @(posedge clk) begin
         if (~reset_n) begin
-            for (int reg_init = 0; reg_init < ENTRIES; reg_init = reg_init + 1) begin
-                reg_mem[reg_init] <= INITIAL_VALUE;
-            end
+            reg_mem <= '{default:INITIAL_VALUE};
         end
         else if (i_flush) begin
-            for (int reg_init = 0; reg_init < ENTRIES; reg_init = reg_init + 1) begin
-                reg_mem[reg_init] <= INITIAL_VALUE;
-            end
+            reg_mem <= '{default:INITIAL_VALUE};
         end
         else begin
             for (int reg_update = 0; reg_update < WRITE_CHANNEL; reg_update = reg_update + 1) begin
@@ -103,13 +99,10 @@ module bram_custom #(
 );
     logic [DATA_WIDTH-1:0] mem [0:ENTRIES-1];
 
-    always_ff @(posedge clk) begin
-        if (i_write_en) begin
-            mem[i_write_addr] <= i_write_data;
-        end
-
+    always_ff @(posedge clk)
+        if (i_write_en) mem[i_write_addr] <= i_write_data;
+    always_ff @(posedge clk)
         o_read_data <= mem[i_read_addr];
-    end
 
 endmodule
 
@@ -275,7 +268,7 @@ module fifo_control #(
     assign wptr_inc = (wptr == WIDTH_DEPTH'(FIFO_DEPTH-1))? '0 : wptr+1'b1;
     assign rptr_inc = (rptr == WIDTH_DEPTH'(FIFO_DEPTH-1))? '0 : rptr+1'b1;
 
-    always_ff @(posedge clk or negedge reset_n) begin
+    always_ff @(posedge clk) begin
         if (~reset_n) begin
             wptr  <= 0;
             rptr  <= 0;
@@ -501,7 +494,7 @@ module fifo_bram #(
 
     assign push_data = i_push_data;
 
-    always_ff @(posedge clk or negedge reset_n) begin
+    always_ff @(posedge clk) begin
         if (~reset_n) begin
             push_empty_active <= 1'b0;
             push_empty_buffer <= 0;
@@ -807,7 +800,7 @@ module fifo_multichan #(
     logic [OUT_ORDERING_VG_LEN-1:0]    out_ord_vg_valid_reg, out_ord_vg_valid_next;
     logic [OUT_ORDERING_VG_WIDTH-1:0]  out_ord_vg_data_reg, out_ord_vg_data_next;
 
-    always_ff @(posedge clk or negedge reset_n) begin
+    always_ff @(posedge clk) begin
         if (~reset_n) begin
             push_valid_reg        <= 0;
             push_data_reg         <= 0;
@@ -1053,7 +1046,7 @@ module allocator #(
     logic [ALLOCATE_WIDTH-1:0] fifo_pop_data;
     integer init_channel, init_remaining;
 
-    always_ff @(posedge clk or negedge reset_n) begin
+    always_ff @(posedge clk) begin
         if (!reset_n) begin
             state      <= IDLE_S;
             init_count <= '0;

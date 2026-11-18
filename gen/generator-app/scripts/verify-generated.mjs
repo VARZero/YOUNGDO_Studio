@@ -44,7 +44,7 @@ const sourceVersions = ${JSON.stringify(platformSources.sourceVersions)};`,
 platformSources = await loadUtility('platformSources.ts');
 const { generateRTL, rtlSourcesFor, validateSchedulerConfig, sourceVersions } = await loadUtility('rtlGenerator.ts');
 const { generateDecoderRTL } = await loadUtility('decoderGenerator.ts');
-const { buildSourceBundle, projectArchiveName, generateCustomLsqTemplate } = await loadUtility('sourceBundle.ts');
+const { buildSourceBundle, projectArchiveName, buildSourceFiles } = await loadUtility('sourceBundle.ts');
 const example = JSON.parse(fs.readFileSync(path.join(appRoot, 'examples/rv32i_4decode_5issue.json'), 'utf8'));
 try {
   const base = { ...example.scheduler, ...example.decoder, platform: 'eulsukdo', enableMemoryOrder: false };
@@ -142,10 +142,11 @@ try {
     console.log(`${profile}: generated top and ${Object.keys(rtlSources).length} RTL sources checked (${warnings} upstream UNOPTFLAT warnings; see verification/)`);
   }
 
-  const oryBase = { ...base, platform: 'oryukdo', robEntries: 32, decodeWidth: 2,
-    prmBuffer: 4, unallocatePhyreg: 1, enableMemoryOrder: true, memoryCoreId: '3' };
-  for (const extra of [{ enableMemoryOrder: false }, { prmBuffer: 8 }, { unallocatePhyreg: 4 }, { lsqMode: 'off' }, { lsqMode: 'custom', lsqEntries: 32 },
-    { istBanks: 4 }, { lsqEntries: 7 }, { phyRegs: 33 }, { memoryCoreId: 'missing' }]) {
+  const oryBase = { ...base, platform: 'oryukdo', robEntries: 128, decodeWidth: 3,
+    prmBuffer: 4, unallocatePhyreg: 4, enableMemoryOrder: true, memoryCoreId: '3' };
+  for (const extra of [{ enableMemoryOrder: false }, { lsqMode: 'off' }, { lsqEntries: 2 },
+    { istBanks: 2 }, { flowPcMaxRange: 2 }, { phyRegs: 33 }, { memoryCoreId: 'missing' },
+    { asyncPortIsolation: 'false' }, { decodeWidth: 1, flowPcMaxRange: 1 }]) {
     assert.ok(validateSchedulerConfig({ ...oryBase, ...extra }));
     assert.throws(() => generateRTL({ ...oryBase, ...extra }));
   }
@@ -156,160 +157,122 @@ try {
     const result = spawnSync(wsl ? 'wsl.exe' : process.env.VERILATOR_BIN ?? 'verilator',
       wsl ? ['--exec', 'verilator', ...args] : args, { encoding: 'utf8', maxBuffer: 32*1024*1024 });
     fs.writeFileSync(path.join(reportDir, `${label}.log`), `${result.stdout}${result.stderr}`);
-    assert.equal(result.status, 0, `${label}: ${result.error ?? ''}\\n${result.stderr}`);
-    const unexpected = [...result.stderr.matchAll(/%Warning-([A-Z0-9_]+):/g)].filter(match => match[1] !== 'UNOPTFLAT');
-    assert.equal(unexpected.length, 0, `${label}: unexpected warnings`);
+    assert.equal(result.status, 0, `${label}: ${result.error ?? ''}\n${result.stderr}`);
+  }
+  function writeSources(label, files) {
+    const target = path.join(dir, label);
+    fs.mkdirSync(target, {recursive:true});
+    return Object.entries(files).filter(([name]) => name.endsWith('.sv')).map(([name, data]) => {
+      const filename = path.join(target, name);fs.mkdirSync(path.dirname(filename), {recursive:true});
+      fs.writeFileSync(filename,data);return toolPath(filename);
+    });
   }
   for (const [profile, extra] of [
+    ['ory_default_3d5i', {}],
     ['ory_custom_lsq', { lsqMode: 'custom' }],
     ['ory_custom_lsq_external', { lsqMode: 'custom', decoderSource: 'external', predictorMode: 'external' }],
-    ['ory_static', {}], ['ory_predictor', { predictorMode: 'external' }],
+    ['ory_predictor', { predictorMode: 'external' }],
     ['ory_external_decode', { decoderSource: 'external' }],
-    ['ory_external_both', { decoderSource: 'external', predictorMode: 'external' }],
-    ['ory_1d3i', { decodeWidth: 1, robEntries: 17, phyRegs: 34, rsFifoEntries: 7, flowWindows: 3,
-      coresList: base.coresList.map(core => ({ ...core, count: 1 })) }],
-    ['ory_reordered_3d7i', { decodeWidth: 3, prmUpdate: 3, istIssueWidth: 4,
+    ['ory_cpu_reset', { asyncPortIsolation: false }],
+    ['ory_2d3i', { decodeWidth: 2, robEntries: 32, rsFifoEntries: 16, flowWindows: 5,
+      lsqEntries: 7, coresList: base.coresList.map(core => ({ ...core, count: 1 })) }],
+    ['ory_reordered_4d7i', { decodeWidth: 4, prmUpdate: 3, istIssueWidth: 4, istBanks: 8,
+      prmBuffer: 8, unallocatePhyreg: 3,
       coresList: [base.coresList[1], { ...base.coresList[2], count: 3 }, { ...base.coresList[0], count: 1 }] }],
   ]) {
     const config = { ...oryBase, ...extra };
     assert.equal(validateSchedulerConfig(config), null, profile);
     const top = generateRTL(config);
-    const decoder = generateDecoderRTL(example.decoder, example.formats, example.instructions, config.coresList);
-    for (const [parameter, value] of Object.entries({ DECODE: config.decodeWidth, PHY: config.phyRegs,
-      ARCH: config.instRegs, ENTRIES: config.robEntries, WINDOWS: config.flowWindows,
-      WINDOW_SIZE: config.flowPcMaxRange ?? 16, UPDATES: config.prmUpdate, RS_DEPTH: config.rsFifoEntries ?? 128,
-      PATHS: config.coresList.length, EX_LANES: config.coresList.reduce((sum, core) => sum + core.count, 0) })) {
-      assert.match(top, new RegExp(`\\b${parameter}\\s*=\\s*${value}\\b`), profile);
-      assert.equal(top.split(`.${parameter}(${parameter})`).length - 1, 1, parameter);
+    const decoder = config.decoderSource === 'external' ? null : generateDecoderRTL(example.decoder, example.formats, example.instructions, config.coresList);
+    for (const [parameter,value] of Object.entries({
+      STRUCT_DECODE_NEW_INST: config.decodeWidth, STRUCT_PHYREGS: config.phyRegs,
+      STRUCT_INST_STATE_ENTRIES: config.robEntries, STRUCT_PRM_ENTRY_BUFFER: config.prmBuffer,
+      STRUCT_UNALLOCATE_PHYREG: config.unallocatePhyreg, STRUCT_LSQ_ENTRIES: config.lsqEntries ?? 32,
+      STRUCT_LSQ_EX_PATH: config.coresList.findIndex(core=>core.id===config.memoryCoreId),
+    })) {
+      assert.match(top,new RegExp(`parameter int ${parameter}\\s*=\\s*${value},`));
+      assert.equal(top.split(`.${parameter}(${parameter})`).length-1,1);
     }
-    assert.ok(top.includes(`EXTERNAL_PREDICTOR=1'b${config.predictorMode === 'external' ? 1 : 0}`));
-    assert.ok(top.includes('.EXTERNAL_PREDICTOR(EXTERNAL_PREDICTOR)'));
-    assert.ok(top.includes(`CUSTOM_LSQ=1'b${config.lsqMode === 'custom' ? 1 : 0}`));
-    assert.ok(top.includes('.CUSTOM_LSQ(CUSTOM_LSQ)'));
-    assert.equal(top.includes('GEN_DECODER'), config.decoderSource !== 'external');
-    if (config.decoderSource !== 'external') {
-      assert.ok(top.includes(`==PATH_W'(${config.coresList.findIndex(core => core.id === config.memoryCoreId)})`));
-      for (const port of ['i_decode_store','i_decode_csr','i_decode_end','i_frontend_exception','i_frontend_cause','i_instruction'])
-        assert.match(top, new RegExp(`input wire [^\\n]* ${port}[,\\n]`));
-    }
-    const rtl = rtlSourcesFor('oryukdo');
-    assert.equal(Object.keys(rtl).length, 17);
-    const archive = buildSourceBundle(top, config.decoderSource === 'external' ? null : decoder,
-      config.isaName, 'sample', JSON.stringify({ scheduler: config }), 'oryukdo');
-    const zipText = new TextDecoder().decode(archive);
-    assert.ok(zipText.includes(sourceVersions.oryukdo.commit));
-    assert.ok(zipText.includes('RTL/oryukdo_rtl/oryukdo_dependency_mapper.sv'));
-    assert.ok(!zipText.includes('RTL/eulsukdo_rtl/'));
-    assert.equal(zipText.includes('RTL/rv32i_decoder.sv'), config.decoderSource !== 'external');
-    assert.equal(zipText.includes('RTL/custom_lsq/oryukdo_custom_lsq.sv'), config.lsqMode === 'custom');
-    if (config.lsqMode === 'custom') assert.ok(zipText.includes(generateCustomLsqTemplate()));
-    fs.writeFileSync(path.join(reportDir, `${profile}.zip`), archive);
-    const target = path.join(dir, profile);fs.mkdirSync(target);
-    const paths = Object.entries({ 'top.sv': top, 'decoder.sv': decoder, ...rtl,
-      ...(config.lsqMode === 'custom' ? {'custom.sv': generateCustomLsqTemplate()} : {}) }).map(([name, data]) => {
-      const filename=path.join(target,name);fs.writeFileSync(filename,data);return toolPath(filename);
-    });
-    runVerilator(profile, ['--lint-only','-Wno-WIDTH','-Wno-fatal','--unroll-count','256',
-      '--top-module','oryukdo_example_top',...paths]);
-    console.log(`${profile}: parameter forwarding, source hashes, ZIP and lint passed`);
+    assert.match(top,new RegExp(`USE_CUSTOM_BRANCH_PREDICTOR\\s*=\\s*1'b${config.predictorMode==='external'?1:0}`));
+    assert.match(top,new RegExp(`ASYNC_PORT_ISOLATION\\s*=\\s*1'b${config.asyncPortIsolation===false?0:1}`));
+    for (const name of ['i_sidefx_ready','i_sidefx_done','i_sidefx_error','o_trap_epc','o_trap_tval','o_backend_kill_inclusive'])
+      assert.match(top,new RegExp(`\\.${name}\\s*\\(${name}\\)`),`Grouped port ${name} lost`);
+    assert.equal(top.includes('GEN_DECODER'),config.decoderSource!=='external');
+    assert.ok(!top.includes('i_decode_') && !top.includes('i_agu_'));
+    const files=buildSourceFiles(top,decoder,config.isaName,'sample',JSON.stringify({scheduler:config}),'oryukdo');
+    assert.equal(Object.keys(rtlSourcesFor('oryukdo')).length,20);
+    for(const [name,data] of Object.entries(rtlSourcesFor('oryukdo')))
+      assert.equal(files[`sample/RTL/oryukdo_rtl/${name}`],data);
+    assert.equal(!!files['sample/RTL/custom_lsq/oryukdo_custom_lsq.sv'],config.lsqMode==='custom');
+    const archive=buildSourceBundle(top,decoder,config.isaName,'sample',JSON.stringify({scheduler:config}),'oryukdo');
+    fs.writeFileSync(path.join(reportDir,`${profile}.zip`),archive);
+    const paths=writeSources(profile,files);
+    runVerilator(profile,['--lint-only','--unroll-count','256','--top-module','oryukdo_example_top',...paths]);
+    console.log(`${profile}: Gen3 ports, parameters, source hashes, ZIP and strict lint passed`);
   }
-  // Check actual generated ISA decoding and frontend metadata/fault priority.
+
+  function simulate(label, topName, files, buildArgs=[], runs=[[]]) {
+    const paths=writeSources(label,files);
+    const obj=path.join(dir,label,'obj');
+    runVerilator(`${label}_build`,['--binary','--timing','--assert','--unroll-count','256','-j','4',
+      '--Mdir',toolPath(obj),'--top-module',topName,...buildArgs,...paths]);
+    for(let i=0;i<runs.length;i++) {
+      const exe=toolPath(path.join(obj,`V${topName}`));
+      const result=spawnSync(wsl?'wsl.exe':exe,wsl?['--exec',exe,...runs[i]]:runs[i],{encoding:'utf8',timeout:120000});
+      fs.writeFileSync(path.join(reportDir,`${label}_${i}.log`),`${result.stdout}${result.stderr}`);
+      assert.equal(result.status,0,`${label}: ${result.error??''}\n${result.stdout}${result.stderr}`);
+      assert.match(result.stdout,/PASS/);
+      console.log(`${label}: ${result.stdout.trim()}`);
+    }
+  }
+  // Exercise the generated ISA bridge with actual instructions, including illegal decode.
   {
-    const target=path.join(dir,'ory_decoder_bridge');fs.mkdirSync(target);
-    const top=generateRTL(oryBase);
-    const connections={i_instruction:'instructions',i_frontend_exception:'fetch_fault',
-      i_frontend_cause:'fetch_cause',i_decode_store:"2'b10",i_decode_csr:"2'b01",i_decode_end:"2'b10"};
-    const ports=[...top.matchAll(/^\s*(input|output)\s+(?:wire|logic)\s+(?:\[[^\]]+\]\s+)?(\w+),?\s*$/gm)];
-    const bench=`module tb_ory_decoder_bridge;
+    const config={...oryBase,decodeWidth:2};
+    const top=generateRTL(config);
+    const ports=[...top.matchAll(/^\s*(input|output)\s+wire\s+(?:\[[^\]]+\]\s+)?(\w+(?:\s*,\s*\w+)*),?\s*$/gm)]
+      .flatMap(([,direction,names])=>names.split(',').map(name=>({direction,name:name.trim()})));
+    const bench=`module tb_decoder;
       logic [63:0] instructions=0;
-      logic [1:0] fetch_fault=0;
-      logic [9:0] fetch_cause=0;
-      oryukdo_example_top dut(${ports.map(([,direction,name])=>`.${name}(${direction==='output'?'':connections[name]??"'0"})`).join(',')});
+      oryukdo_example_top dut(${ports.map(({direction,name})=>`.${name}(${direction==='output'?'':name==='i_im_recv_inst'?'instructions':"'0"})`).join(',')});
       initial begin
         instructions={32'h0000a203,32'h002081b3}; #1;
-        assert(dut.i_decode_rd[4:0]==3 && dut.i_decode_rd[9:5]==4) else $fatal(1,"Decoder register mapping");
-        assert(dut.i_decode_rs[4:0]==1 && dut.i_decode_rs[9:5]==2) else $fatal(1,"Decoder source order");
-        assert(dut.i_decode_memory==2'b10 && dut.i_decode_write==2'b11 && dut.i_decode_exception==0) else $fatal(1,"Load classification");
-        assert(dut.U_SCHEDULER_CORE.i_decode_store==2'b10 && dut.U_SCHEDULER_CORE.i_decode_csr==2'b01 && dut.U_SCHEDULER_CORE.i_decode_end==2'b10) else $fatal(1,"Frontend classification lost");
+        assert(dut.i_nel_decode_rd[4:0]==3 && dut.i_nel_decode_rd[9:5]==4) else $fatal(1,"rd");
+        assert(dut.i_nel_decode_rs[4:0]==1 && dut.i_nel_decode_rs[9:5]==2) else $fatal(1,"rs");
+        assert(dut.i_nel_decode_newreg==2'b11 && dut.i_nel_decode_exception==0) else $fatal(1,"load");
+        assert(dut.i_nel_decode_expath[3:2]==2) else $fatal(1,"memory path");
         instructions[31:0]=32'h00000063; #1;
-        assert(dut.i_decode_control[0]) else $fatal(1,"Branch classification");
+        assert(dut.i_nel_decode_branch[0]) else $fatal(1,"branch");
         instructions[31:0]=32'hffffffff; #1;
-        assert(dut.i_decode_exception[0] && dut.i_decode_cause[4:0]==2 && !dut.i_decode_memory[0]) else $fatal(1,"Illegal decode");
-        fetch_fault=1;fetch_cause[4:0]=12; #1;
-        assert(dut.i_decode_cause[4:0]==12) else $fatal(1,"Fetch fault priority");
-        $display("ORYUKDO_DECODER_BRIDGE_PASS");$finish;
+        assert(dut.i_nel_decode_exception[0]) else $fatal(1,"illegal");
+        $display("PASS generated Gen3 decoder");$finish;
       end
     endmodule`;
-    const paths=Object.entries({'top.sv':top,'bench.sv':bench,
-      'decoder.sv':generateDecoderRTL(example.decoder,example.formats,example.instructions,oryBase.coresList),
-      ...rtlSourcesFor('oryukdo')}).map(([name,data])=>{
-      const filename=path.join(target,name);fs.writeFileSync(filename,data);return toolPath(filename);
-    });
-    const obj=path.join(target,'obj');
-    runVerilator('ory_decoder_bridge_build',['--binary','--timing','--assert','-Wno-WIDTH','-Wno-fatal',
-      '--unroll-count','256','-j','2','--Mdir',toolPath(obj),'--top-module','tb_ory_decoder_bridge',...paths]);
-    const exe=toolPath(path.join(obj,'Vtb_ory_decoder_bridge'));
-    const run=spawnSync(wsl?'wsl.exe':exe,wsl?['--exec',exe]:[],{encoding:'utf8'});
-    fs.writeFileSync(path.join(reportDir,'ory_decoder_bridge.log'),`${run.stdout}${run.stderr}`);
-    assert.equal(run.status,0,run.stdout+run.stderr);
-    assert.ok(run.stdout.includes('ORYUKDO_DECODER_BRIDGE_PASS'));
-    console.log('ory_decoder_bridge: ISA, classification, illegal instruction and fetch-fault priority passed');
+    simulate('ory_decoder','tb_decoder',{'top.sv':top,'bench.sv':bench,
+      'decoder.sv':generateDecoderRTL(example.decoder,example.formats,example.instructions,config.coresList),
+      ...rtlSourcesFor('oryukdo')});
   }
-
-  // Execute the upstream boundary regression against the exact shipped RTL.
-  // Keep normal serial progress as well as redirect/interrupt suppression covered.
-  {
-    const top='tb_oryukdo_frontier';
-    const bench=fs.readFileSync(path.join(appRoot,`scripts/fixtures/${top}.sv`),'utf8');
-    for (const depth of [4,3]) for (const test of [0,1]) {
-      const label=`ory_frontier_${depth}_${test}`;
-      const target=path.join(dir,label);fs.mkdirSync(target);
-      const paths=Object.entries({'bench.sv':bench,
-        'oryukdo_frontier.sv':rtlSourcesFor('oryukdo')['oryukdo_frontier.sv']}).map(([name,data])=>{
-        const filename=path.join(target,name);fs.writeFileSync(filename,data);return toolPath(filename);
-      });
-      const obj=path.join(target,'obj');
-      runVerilator(`${label}_build`,['--binary','--timing','--assert','-Wno-fatal',
-        '-j','2','--Mdir',toolPath(obj),'--top-module',top,`-GDEPTH=${depth}`,`-GTEST=${test}`,...paths]);
-      const exe=toolPath(path.join(obj,`V${top}`));
-      const run=spawnSync(wsl?'wsl.exe':exe,wsl?['--exec',exe]:[],{encoding:'utf8',timeout:120000});
-      fs.writeFileSync(path.join(reportDir,`${label}.log`),`${run.stdout}${run.stderr}`);
-      assert.equal(run.status,0,`${run.error ?? ''}\n${run.stdout}${run.stderr}`);
-      assert.ok(run.stdout.includes(`${top} PASS`));
-      console.log(`${label}: ordered boundaries and stable-token regression passed`);
-    }
+  // Run the upstream architectural scoreboard through the EXPORTED wrapper.
+  // Only the top name and hierarchical DUT references are adapted.
+  const fixture=fs.readFileSync(path.join(appRoot,'scripts/fixtures/tb_gen3.sv'),'utf8');
+  for (const customLsq of [false,true]) for (const predictor of [false,true]) {
+    const config={...oryBase,decoderSource:'external',lsqMode:customLsq?'custom':'builtin',predictorMode:predictor?'external':'static'};
+    const files=buildSourceFiles(generateRTL(config),null,config.isaName,'sample',JSON.stringify({scheduler:config}),'oryukdo');
+    let bench=fixture.replace('oryukdo_gen3_scheduler #(','oryukdo_example_top #(').replaceAll('dut.','dut.U_SCHEDULER_CORE.');
+    if (customLsq) bench=bench.replaceAll('G_LSQ.U_LSQ.', 'G_LSQ.U_LSQ.U_REFERENCE.');
+    const runs=customLsq||predictor ? [['+goal=2000']] : [
+      ['+warm_reset','+goal=2000'],['+seed=91','+goal=5000'],['+seed=6101','+goal=5000'],
+      ['+seed=70103','+goal=25000'],...[1,2,3,4].map(n=>[`+scenario=${n}`,'+goal=1000'])];
+    simulate(`ory_functional_${Number(customLsq)}_${Number(predictor)}`,'tb_gen3',
+      {...files,'bench.sv':bench},['-Wno-PINMISSING',`-GCUSTOM=1'b${Number(predictor)}`],runs);
   }
-
-  // Execute upstream recovery/memory/CSR/wakeup tests through the GENERATED
-  // external-decode wrapper, including both predictor modes. Only the module
-  // name and paths to its nested core assertions differ from the upstream TB.
-  const fixture = fs.readFileSync(path.join(appRoot,'scripts/fixtures/tb_oryukdo_scheduler.sv'),'utf8');
-  for (const [mode, custom, starter] of [[0,0,false],[1,0,false],[0,1,false],[1,1,false],[0,1,true]]) {
-    const label=`ory_functional_${mode}_${custom}_${starter?'starter':'stall'}`;
-    const target=path.join(dir,label);fs.mkdirSync(target);
-    const top=generateRTL({ ...oryBase, decoderSource:'external', predictorMode:mode?'external':'static', lsqMode:custom?'custom':'builtin' });
-    let bench=fixture.replace('    oryukdo_scheduler #(', '    oryukdo_example_top #(').replaceAll('dut.', 'dut.U_SCHEDULER_CORE.');
-    if (starter) {
-      bench=bench.slice(0,bench.indexOf('// Test-only user implementation;')) + generateCustomLsqTemplate();
-      bench=bench.replace(/    generate if\(CUSTOM_LSQ\) begin : CUSTOM_TEST[\s\S]*?    end endgenerate/,
-        '    if(1) begin : CUSTOM_TEST\n      task automatic run; endtask\n    end');
-    }
-    const paths=Object.entries({ 'top.sv':top, 'bench.sv':bench, ...rtlSourcesFor('oryukdo') }).map(([name,data])=>{
-      const filename=path.join(target,name);fs.writeFileSync(filename,data);return toolPath(filename);
-    });
-    const obj=path.join(target,'obj');
-    runVerilator(`${label}_build`, ['--binary','--timing','--assert','-Wno-WIDTH','-Wno-fatal',
-      '--unroll-count','256','-j','2','--Mdir',toolPath(obj),'--top-module','tb_oryukdo_scheduler',
-      `-GEXTERNAL_PREDICTOR=${mode}`,`-GCUSTOM_LSQ=${custom}`,...paths]);
-    const exe=toolPath(path.join(obj,'Vtb_oryukdo_scheduler'));
-    const run=spawnSync(wsl?'wsl.exe':exe,wsl?['--exec',exe]:[],{encoding:'utf8'});
-    fs.writeFileSync(path.join(reportDir,`${label}.log`),`${run.stdout}${run.stderr}`);
-    assert.equal(run.status,0,run.stdout+run.stderr);
-    assert.ok(run.stdout.includes('tb_oryukdo_scheduler PASS'));
-    console.log(`${label}: generated wrapper recovery/window/memory regression passed`);
-  }
-
-  console.log('Feature guards, parameter forwarding, source hashes and ZIP contents passed');
+  for(const [name,sources] of [
+    ['tb_branch_recovery',['oryukdo_branch_recovery.sv']],
+    ['tb_protocols',['oryukdo_recovery_boundary.sv','oryukdo_sidefx_commit_bridge.sv']],
+  ]) simulate(name,name,{
+    'bench.sv':fs.readFileSync(path.join(appRoot,`scripts/fixtures/${name}.sv`),'utf8'),
+    ...Object.fromEntries(sources.map(name=>[name,rtlSourcesFor('oryukdo')[name]])),
+  });
+  console.log('Feature guards, generated wrappers, source hashes, ZIP and Gen3 regressions passed');
 } finally {
   assert.ok(path.resolve(dir).startsWith(path.resolve(os.tmpdir()) + path.sep + 'youngdo-gen2-'));
   fs.rmSync(dir, { recursive: true, force: true });

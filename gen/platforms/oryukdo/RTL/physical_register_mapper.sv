@@ -370,7 +370,7 @@ module physical_register_mapper #(
         // Advance fairness on reservation, not downstream acceptance. Holding
         // the current row excludes it from subsequent selections until commit.
         if ((!drain_valid || drain_fire) && drain_select_valid) begin
-            if (drain_select_phyreg == STRUCT_PHYREGS-1) drain_start_next = 0;
+            if (int'(drain_select_phyreg) == STRUCT_PHYREGS-1) drain_start_next = 0;
             else drain_start_next = drain_select_phyreg+1'b1;
         end
 
@@ -433,8 +433,8 @@ module physical_register_mapper #(
                 return_phyreg = idx_return_group*RETURN_GROUP_SIZE+idx_return_slot;
                 if ((return_phyreg > 0) && (return_phyreg < STRUCT_PHYREGS)) begin
                     if (retired_pending[return_phyreg] &&
-                        (return_tree_count[RETURN_LEAVES+idx_return_group] < STRUCT_UNALLOCATE_PHYREG)) begin
-                        return_tree_data[RETURN_LEAVES+idx_return_group][return_tree_count[RETURN_LEAVES+idx_return_group]] =
+                        (int'(return_tree_count[RETURN_LEAVES+idx_return_group]) < STRUCT_UNALLOCATE_PHYREG)) begin
+                        return_tree_data[RETURN_LEAVES+idx_return_group][int'(return_tree_count[RETURN_LEAVES+idx_return_group])] =
                             _BITWIDTH_STRUCT_PHYREGS'(return_phyreg);
                         return_tree_count[RETURN_LEAVES+idx_return_group] = return_tree_count[RETURN_LEAVES+idx_return_group]+1'b1;
                     end
@@ -444,7 +444,7 @@ module physical_register_mapper #(
         for (idx_return_node = RETURN_LEAVES-1; idx_return_node > 0; idx_return_node = idx_return_node-1) begin
             return_merge_count = {1'b0, return_tree_count[2*idx_return_node]} +
                                  {1'b0, return_tree_count[2*idx_return_node+1]};
-            if (return_merge_count > STRUCT_UNALLOCATE_PHYREG)
+            if (int'(return_merge_count) > STRUCT_UNALLOCATE_PHYREG)
                 return_tree_count[idx_return_node] = RETURN_COUNT_WIDTH'(STRUCT_UNALLOCATE_PHYREG);
             else return_tree_count[idx_return_node] = RETURN_COUNT_WIDTH'(return_merge_count);
             for (idx_return_lane = 0; idx_return_lane < STRUCT_UNALLOCATE_PHYREG; idx_return_lane = idx_return_lane+1) begin
@@ -452,7 +452,7 @@ module physical_register_mapper #(
                     if (idx_return_lane < return_tree_count[2*idx_return_node])
                         return_tree_data[idx_return_node][idx_return_lane] = return_tree_data[2*idx_return_node][idx_return_lane];
                     else return_tree_data[idx_return_node][idx_return_lane] =
-                        return_tree_data[2*idx_return_node+1][RETURN_COUNT_WIDTH'(idx_return_lane)-return_tree_count[2*idx_return_node]];
+                        return_tree_data[2*idx_return_node+1][idx_return_lane-int'(return_tree_count[2*idx_return_node])];
                 end
             end
         end
@@ -466,7 +466,7 @@ module physical_register_mapper #(
         end
     end
 
-    always_ff @(posedge clk or negedge reset_n) begin
+    always_ff @(posedge clk) begin
         if (~reset_n) begin
             input_read_ptr <= 0;
             input_write_ptr <= 0;

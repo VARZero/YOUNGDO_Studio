@@ -38,6 +38,7 @@ export const validateFullConfig = (data: unknown): data is StudioSettings => {
     if (p !== 'coresList' && typeof (parsed.scheduler as unknown as Record<string, unknown>)[p] !== 'number') return false;
   }
   if (!Array.isArray(parsed.scheduler.coresList)) return false;
+  if (parsed.scheduler.asyncPortIsolation !== undefined && typeof parsed.scheduler.asyncPortIsolation !== 'boolean') return false;
   if (parsed.scheduler.enableMemoryOrder !== undefined && typeof parsed.scheduler.enableMemoryOrder !== 'boolean') return false;
   if (parsed.scheduler.lsqEntries !== undefined && typeof parsed.scheduler.lsqEntries !== 'number') return false;
   if (parsed.scheduler.lsqMode !== undefined && !['builtin', 'custom'].includes(parsed.scheduler.lsqMode)) return false;
